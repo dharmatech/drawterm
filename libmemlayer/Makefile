@@ -4,6 +4,7 @@ LIB=libmemlayer.a
 
 OFILES=\
 	draw.$O\
+	warp.$O\
 	lalloc.$O\
 	layerop.$O\
 	ldelete.$O\
