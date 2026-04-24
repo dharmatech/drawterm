@@ -37,6 +37,9 @@ drawterm  \- connection to cpu, fs, and auth servers
 .B -g
 .I geometry
 ] [
+.B -x
+.I [amount]
+] [
 .B -c
 .I cmd \fR...]
 
@@ -122,6 +125,15 @@ to a value in
 Specifies the root directory on the client. The default is
 .I /root
 and all further paths are relative thereto.
+
+.TP
+.B -x \fI[amount]
+(macOS only) Enables scaling. The scale factor is optionally set by 
+.I amount, 
+a positive integer. Without this flag, no
+scaling is performed and graphics are rendered 1:1 with the display resolution. Not specifying an
+amount or specifying 1 scales using a default picked by macOS, while increasing values of n 
+scale accordingly. 0 disables scaling, nullifying this flag.
 
 .TP
 .B -c \fIcmd \fR...

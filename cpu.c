@@ -41,6 +41,8 @@ char *user, *pass;
 char secstorebuf[65536];
 char *geometry;
 
+int scalef;
+
 extern void	guimain(void);
 
 char*
@@ -258,6 +260,7 @@ usage(void)
 		"[-p] [-t timeout] "
 		"[-r root] "
 		"[-g geometry] "
+		"[-x [amount]] "
 		"[-c cmd ...]\n", argv0);
 	exits("usage");
 }
@@ -334,6 +337,15 @@ cpumain(int argc, char **argv)
 		 *	[=][<width>{xX}<height>][{+-}<xoffset>{+-}<yoffset>]
 		 */
 		geometry = EARGF(usage());
+		break;
+	case 'x':
+		scalef = 1;
+		if((s = ARGF()) != nil)
+			scalef = atoi(s);
+		if(scalef < 0){
+			fprintf(stderr, "%s: scale factor must be >= 0\n", argv0);
+			EARGF(usage());
+		}
 		break;
 	default:
 		usage();

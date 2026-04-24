@@ -22,7 +22,8 @@
 #endif
 #define LOG(fmt, ...) if(DEBUG)NSLog((@"%s:%d %s " fmt), __FILE__, __LINE__, __PRETTY_FUNCTION__, ##__VA_ARGS__)
 
-Memimage *gscreen;
+Memimage *gscreen; 
+extern int scalef;
 
 @interface DrawLayer : CAMetalLayer
 @property id<MTLTexture> texture;
@@ -68,11 +69,27 @@ guimain(void)
 	}
 }
 
+/* 
+ * 0: No scaling, use display resolution
+ * 1: Use macOS default scaling
+ * n: Scale by n based off display res
+ */
+static NSSize
+scalesize(NSSize s)
+{
+	NSSize r = [myview convertSizeToBacking:s];
+	switch(scalef){
+		case 0: return r;
+		case 1: return myview.frame.size;
+		default: return NSMakeSize(r.width/scalef, r.height/scalef);
+	}
+}
+
 void
 screeninit(void)
 {
 	memimageinit();
-	NSSize s = [myview convertSizeToBacking:myview.frame.size];
+	NSSize s = scalesize(myview.frame.size);
 	screensize(Rect(0, 0, s.width, s.height), ARGB32);
 	gscreen->clipr = Rect(0, 0, s.width, s.height);
 	LOG(@"%g %g", s.width, s.height);
@@ -102,7 +119,7 @@ screensize(Rectangle r, ulong chan)
 	textureDesc.cpuCacheMode = MTLCPUCacheModeWriteCombined;
 	layer.texture = [layer.device newTextureWithDescriptor:textureDesc];
 
-	CGFloat scale = myview.window.backingScaleFactor;
+	CGFloat scale = myview.window.backingScaleFactor * (scalef ? scalef : 1);
 	[layer setDrawableSize:NSMakeSize(Dx(r), Dy(r))];
 	[layer setContentsScale:scale];
 }
@@ -276,6 +293,18 @@ setcursor(void)
 	});
 }
 
+static NSPoint
+unscalemouse(NSPoint p, NSWindow *w)
+{
+	NSPoint s;
+	s = [w convertPointFromBacking:p];
+	switch(scalef){
+		case 0: return s;
+		case 1: return p;
+		default: return NSMakePoint(s.x*scalef, s.y*scalef);
+	}
+}
+
 void
 mouseset(Point p)
 {
@@ -285,7 +314,7 @@ mouseset(Point p)
 		if([[myview window] isKeyWindow]){
 			s = NSMakePoint(p.x, p.y);
 			LOG(@"-> pixel  %g %g", s.x, s.y);
-			s = [[myview window] convertPointFromBacking:s];
+			s = unscalemouse(s, [myview window]);
 			LOG(@"-> point  %g %g", s.x, s.y);
 			s = [myview convertPoint:s toView:nil];
 			LOG(@"-> window %g %g", s.x, s.y);
@@ -374,11 +403,25 @@ mainproc(void *aux)
 	return YES;
 }
 
+static NSPoint
+scalemouse(NSPoint p, NSWindow *w)
+{
+	NSPoint s;
+	s = [w convertPointToBacking:p];
+	switch(scalef){
+		case 0: return s;
+		case 1: return p;
+		default: return NSMakePoint(s.x/scalef, s.y/scalef);
+	}
+}
+
 - (void) windowDidBecomeKey:(id)arg
 {
 	NSPoint p;
-	p = [_window convertPointToBacking:[_window mouseLocationOutsideOfEventStream]];
-	absmousetrack(p.x, [myview convertSizeToBacking:myview.frame.size].height - p.y, 0, ticks());
+	NSSize s;
+	p = scalemouse([_window mouseLocationOutsideOfEventStream], _window);
+	s = scalesize(myview.frame.size);
+	absmousetrack(p.x, s.height - p.y, 0, ticks());
 }
 
 - (void) windowDidResignKey:(id)arg
@@ -591,11 +634,13 @@ evkey(uint v)
 - (void) mouseevent:(NSEvent*)event
 {
 	NSPoint p;
+	NSSize s;
 	Point q;
 	NSUInteger u;
 	NSEventModifierFlags m;
 
-	p = [self.window convertPointToBacking:[self.window mouseLocationOutsideOfEventStream]];
+	p = scalemouse([self.window mouseLocationOutsideOfEventStream], self.window);
+	s = scalesize(self.frame.size);
 	u = [NSEvent pressedMouseButtons];
 	q.x = p.x;
 	q.y = p.y;
@@ -609,7 +654,7 @@ evkey(uint v)
 		}else if(m & NSEventModifierFlagCommand)
 			u = 4;
 	}
-	absmousetrack(p.x, [self convertSizeToBacking:self.frame.size].height - p.y, u, ticks());
+	absmousetrack(p.x, s.height - p.y, u, ticks());
 	if(u && _lastInputRect.size.width && _lastInputRect.size.height)
 		[self resetLastInputRect];
 }
@@ -697,7 +742,7 @@ evkey(uint v)
 
 - (void) reshape
 {
-	NSSize s = [self convertSizeToBacking:self.frame.size];
+	NSSize s = scalesize(self.frame.size);
 	LOG(@"%g %g", s.width, s.height);
 	if(gscreen != nil){
 		screenresize(Rect(0, 0, s.width, s.height));
