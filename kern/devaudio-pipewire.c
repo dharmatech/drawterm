@@ -68,10 +68,11 @@ static const struct pw_stream_events stream_events = {
 static void
 pwproc(void *arg)
 {
-	struct pw_main_loop *loop;
+	struct pw_stream *output;
 
-	loop = arg;
-	pw_main_loop_run(loop);
+	output = arg;
+	pw_main_loop_run(pwstate.loop);
+	pw_stream_destroy(output);
 	pexit("", 0);
 }
 
@@ -129,14 +130,13 @@ audiodevopen(void)
 		return;
 	}
 
-	kproc("pipewire main loop", pwproc, pwstate.loop);
+	kproc("pipewire main loop", pwproc, pwstate.output);
 }
 
 void
 audiodevclose(void)
 {
 	pw_main_loop_quit(pwstate.loop);
-	pw_stream_destroy(pwstate.output);
 }
 
 int
