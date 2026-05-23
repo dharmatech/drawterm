@@ -13,8 +13,8 @@ extern char *argv0;
 				switch(_argc)
 #define	ARGEND		SET(_argt);USED(_argt); USED(_argc); USED(_args);}USED(argv); USED(argc);
 #define	ARGF()		(_argt=_args, _args="",\
-				(*_argt? _argt: argv[1]? (argc--, *++argv): 0))
+				(*_argt?  _argt: (argv[1] && argv[1][0] != '-')?  (argc--, *++argv): nil))
 #define	ARGC()		_argc
 
 #define	EARGF(x)		(_argt=_args, _args="",\
-				(*_argt? _argt: argv[1]? (argc--, *++argv): (x, (char*)0)))
+				(*_argt?  _argt: argv[1]?  (argc--, *++argv): ((x), abort(), nil)))

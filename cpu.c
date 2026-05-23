@@ -272,7 +272,7 @@ extern void cpubody(void);
 void
 cpumain(int argc, char **argv)
 {
-	char *s;
+	char *s, *a;
 
 	user = getenv("USER");
 	host = getenv("cpu");
@@ -340,11 +340,12 @@ cpumain(int argc, char **argv)
 		break;
 	case 'x':
 		scalef = 1;
-		if((s = ARGF()) != nil)
-			scalef = atoi(s);
-		if(scalef < 0){
-			fprintf(stderr, "%s: scale factor must be >= 0\n", argv0);
-			EARGF(usage());
+		if((s = ARGF()) == nil)
+			break;
+		scalef = strtoll(s, &a, 10);
+		if(a == s || scalef < 0){
+			fprint(2, "%s: scale factor must be >= 0\n", argv0);
+			usage();
 		}
 		break;
 	default:
