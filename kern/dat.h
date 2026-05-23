@@ -237,14 +237,13 @@ struct Mntwalk				/* state for /proc/#/ns */
 
 struct Mount
 {
-	ulong	mountid;
-	Mount*	next;
-	Mhead*	head;
-	Mount*	copy;
-	Mount*	order;
+	Mount*	order;			/* Pgrp.mntorder chain */
+	Mount*	norder;			/* forward pointer for pgrpcpy() */
+	Mount*	next;			/* Mhead.mount chain */
+	Mhead*	umh;			/* the union we belong to */ 
 	Chan*	to;			/* channel replacing channel */
 	int	mflag;
-	char	*spec;
+	char	spec[];
 };
 
 struct Mhead
@@ -292,9 +291,10 @@ enum
 struct Pgrp
 {
 	Ref ref;				/* also used as a lock when mounting */
-	int	noattach;
-	QLock	debug;			/* single access via devproc.c */
 	RWLock	ns;			/* Namespace n read/one write lock */
+	uchar	devmask[256/8];		/* Room for 256 devices */
+	Mount	*mntorder;		/* Ordered list of mounts */
+	Mount	**mntordertail;
 	Mhead	*mnthash[MNTHASH];
 };
 
@@ -328,6 +328,7 @@ struct Fgrp
 {
 	Ref	ref;
 	Chan	**fd;
+	uchar	*flag;
 	int	nfd;			/* number allocated */
 	int	maxfd;			/* highest fd in use */
 	int	exceed;			/* debugging */

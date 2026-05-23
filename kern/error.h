@@ -49,3 +49,5 @@ extern char Ebadstat[];		/* malformed stat buffer */
 extern char Enegoff[];		/* negative i/o offset */
 extern char Ecmdargs[];		/* wrong #args in control message */
 extern char Etoolong[];		/* name too long */
+extern char Edirseek[];		/* seek in directory */
+extern char Eismtpt[];		/* is a mount point */

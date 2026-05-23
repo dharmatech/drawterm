@@ -49,3 +49,5 @@ char Ebadstat[] = "malformed stat buffer";
 char Enegoff[] = "negative i/o offset";
 char Ecmdargs[] = "wrong #args in control message";
 char Etoolong[] = "name too long";
+char Edirseek[] = "seek in directory";
+char Eismtpt[] = "is a mount point";

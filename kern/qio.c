@@ -212,9 +212,10 @@ trimblock(Block *bp, int offset, int len)
 	ulong l;
 	Block *nb, *startb;
 
-	assert(len >= 0);
-	assert(offset >= 0);
-
+	if(offset < 0 || len < 0){
+		freeblist(bp);
+		return nil;
+	}
 	QDEBUG checkb(bp, "trimblock 1");
 	l = blocklen(bp);
 	if(offset == 0 && len == l)
@@ -500,7 +501,6 @@ iunlock_producer(Queue *q)
 
 	if(s & Qstarve)
 		wakeup(&q->rr);
-
 	return s;
 }
 
@@ -770,7 +770,7 @@ qwait(Queue *q)
 			break;
 
 		if(q->state & Qclosed){
-			if(q->eof >= 3 || (*q->err && strcmp(q->err, Ehungup) != 0))
+			if(q->eof >= 3 || *q->err && strcmp(q->err, Ehungup) != 0)
 				return -1;
 			q->eof++;
 			return 0;
@@ -991,12 +991,13 @@ qflow(Flow *f)
 long
 qbwrite(Queue *q, Block *b)
 {
+	void (*bypass)(void*, Block*);
 	Flow flow;
 	int len;
 
-	if(q->bypass != nil){
+	if((bypass = q->bypass) != nil){
 		len = blocklen(b);
-		(*q->bypass)(q->arg, b);
+		(*bypass)(q->arg, b);
 		return len;
 	}
 
@@ -1088,6 +1089,7 @@ qwrite(Queue *q, void *vp, int len)
 int
 qiwrite(Queue *q, void *vp, int len)
 {
+	void (*bypass)(void*, Block*);
 	int n, sofar;
 	Block *b;
 	uchar *p = vp;
@@ -1105,6 +1107,12 @@ qiwrite(Queue *q, void *vp, int len)
 			break;
 		memmove(b->wp, p+sofar, n);
 		b->wp += n;
+
+		if((bypass = q->bypass) != nil){
+			sofar += n;
+			(*bypass)(q->arg, b);
+			continue;
+		}
 
 		ilock(&q->lk);
 		if(q->state & (Qflow|Qclosed)){

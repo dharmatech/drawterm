@@ -4,15 +4,16 @@
 #include	"fns.h"
 #include	"error.h"
 
-static Ref mountid;
-
 Pgrp*
 newpgrp(void)
 {
 	Pgrp *p;
 
-	p = smalloc(sizeof(Pgrp));
+	p = malloc(sizeof(Pgrp));
+	if(p == nil)
+		error(Enomem);
 	p->ref.ref = 1;
+	p->mntordertail = &p->mntorder;
 	return p;
 }
 
@@ -21,7 +22,9 @@ newrgrp(void)
 {
 	Rgrp *r;
 
-	r = smalloc(sizeof(Rgrp));
+	r = malloc(sizeof(Rgrp));
+	if(r == nil)
+		error(Enomem);
 	r->ref.ref = 1;
 	return r;
 }
@@ -58,70 +61,68 @@ closepgrp(Pgrp *p)
 }
 
 void
-pgrpinsert(Mount **order, Mount *m)
+pgrpinsert(Pgrp *pg, Mount *m)
 {
-	Mount *f;
-
 	m->order = nil;
-	if(*order == nil) {
-		*order = m;
-		return;
-	}
-	for(f = *order; f != nil; f = f->order) {
-		if(m->mountid < f->mountid) {
-			m->order = f;
-			*order = m;
-			return;
-		}
-		order = &f->order;
-	}
-	*order = m;
+	*pg->mntordertail = m;
+	pg->mntordertail = &m->order;
 }
 
-/*
- * pgrpcpy MUST preserve the mountid allocation order of the parent group
- */
 void
-pgrpcpy(Pgrp *to, Pgrp *from)
+pgrpremove(Pgrp *pg, Mount *m)
 {
-	Mount *n, *m, **link, *order;
-	Mhead *f, **tom, **l, *mh;
+	Mount *f, **l = &pg->mntorder;
+
+	for(f = pg->mntorder; f != nil; f = f->order) {
+		if(f == m){
+			if((*l = f->order) == nil)
+				pg->mntordertail = l;
+			f->order = nil;
+			return;
+		}
+		l = &f->order;
+	}
+}
+
+int
+canmount(Pgrp *pgrp)
+{
+	/*
+	 * Devmnt is not usable directly from user procs, so
+	 * having it masked is interpreted to block any mounts.
+	 */
+	return !devmasked(pgrp, devno('M'));
+}
+
+int
+devmasked(Pgrp *pgrp, int i)
+{
+	return (pgrp->devmask[i>>3] & 1<<(i&7)) != 0;
+}
+
+void
+devmask(Pgrp *pgrp, int invert, char *devs)
+{
+	uchar mask[sizeof pgrp->devmask];
+	Rune r;
 	int i;
 
-	wlock(&to->ns);
-	rlock(&from->ns);
-	order = nil;
-	tom = to->mnthash;
-	for(i = 0; i < MNTHASH; i++) {
-		l = tom++;
-		for(f = from->mnthash[i]; f != nil; f = f->hash) {
-			rlock(&f->lock);
-			mh = newmhead(f->from);
-			*l = mh;
-			l = &mh->hash;
-			link = &mh->mount;
-			for(m = f->mount; m != nil; m = m->next) {
-				n = smalloc(sizeof(Mount));
-				n->mountid = m->mountid;
-				n->mflag = m->mflag;
-				n->to = m->to;
-				incref(&n->to->ref);
-				if(m->spec != nil)
-					kstrdup(&n->spec, m->spec);
-				pgrpinsert(&order, n);
-				*link = n;
-				link = &n->next;
-			}
-			runlock(&f->lock);
-		}
+	if(invert)
+		invert = 0xFF;
+
+	memset(mask, 0, sizeof mask);		
+	while(*devs != '\0') {
+		devs += chartorune(&r, devs);
+		i = devno(r);
+		if(i < 0)
+			continue;
+		mask[i>>3] |= 1<<(i&7);
 	}
-	/*
-	 * Allocate mount ids in the same sequence as the parent group
-	 */
-	for(m = order; m != nil; m = m->order)
-		m->mountid = incref(&mountid);
-	runlock(&from->ns);
-	wunlock(&to->ns);
+
+	wlock(&pgrp->ns);
+	for(i=0; i < sizeof mask; i++)
+		pgrp->devmask[i] |= mask[i] ^ invert;
+	wunlock(&pgrp->ns);
 }
 
 Fgrp*
@@ -131,11 +132,20 @@ dupfgrp(Fgrp *f)
 	Chan *c;
 	int i;
 
-	new = smalloc(sizeof(Fgrp));
+	new = malloc(sizeof(Fgrp));
+	if(new == nil)
+		error(Enomem);
+	new->ref.ref = 1;
 	if(f == nil){
-		new->fd = smalloc(DELTAFD*sizeof(Chan*));
 		new->nfd = DELTAFD;
-		new->ref.ref = 1;
+		new->fd = malloc(DELTAFD*sizeof(new->fd[0]));
+		new->flag = malloc(DELTAFD*sizeof(new->flag[0]));
+		if(new->fd == nil || new->flag == nil){
+			free(new->flag);
+			free(new->fd);
+			free(new);
+			error(Enomem);
+		}
 		return new;
 	}
 
@@ -145,19 +155,21 @@ dupfgrp(Fgrp *f)
 	i = new->nfd%DELTAFD;
 	if(i != 0)
 		new->nfd += DELTAFD - i;
-	new->fd = malloc(new->nfd*sizeof(Chan*));
-	if(new->fd == nil){
+	new->fd = malloc(new->nfd*sizeof(new->fd[0]));
+	new->flag = malloc(new->nfd*sizeof(new->flag[0]));
+	if(new->fd == nil || new->flag == nil){
 		unlock(&f->ref.lk);
+		free(new->flag);
+		free(new->fd);
 		free(new);
-		error("no memory for fgrp");
+		error(Enomem);
 	}
-	new->ref.ref = 1;
-
 	new->maxfd = f->maxfd;
 	for(i = 0; i <= f->maxfd; i++) {
 		if((c = f->fd[i]) != nil){
-			incref(&c->ref);
 			new->fd[i] = c;
+			new->flag[i] = f->flag[i];
+			incref(&c->ref);
 		}
 	}
 	unlock(&f->ref.lk);
@@ -174,12 +186,7 @@ closefgrp(Fgrp *f)
 	if(f == nil || decref(&f->ref))
 		return;
 
-	for(i = 0; i <= f->maxfd; i++)
-		if((c = f->fd[i]) != nil){
-			f->fd[i] = nil;
-			cclose(c);
-		}
-
+	free(f->flag);
 	free(f->fd);
 	free(f);
 }
@@ -189,14 +196,16 @@ newmount(Chan *to, int flag, char *spec)
 {
 	Mount *m;
 
-	m = smalloc(sizeof(Mount));
+	if(spec == nil)
+		spec = "";
+	m = malloc(sizeof(Mount)+strlen(spec)+1);
+	if(m == nil)
+		error(Enomem);
 	m->to = to;
 	incref(&to->ref);
-	m->mountid = incref(&mountid);
 	m->mflag = flag;
-	if(spec != nil)
-		kstrdup(&m->spec, spec);
-
+	strcpy(m->spec, spec);
+	setmalloctag(m, getcallerpc(&to));
 	return m;
 }
 
@@ -208,7 +217,6 @@ mountfree(Mount *m)
 	while((f = m) != nil) {
 		m = m->next;
 		cclose(f->to);
-		free(f->spec);
 		free(f);
 	}
 }

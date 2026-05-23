@@ -29,7 +29,7 @@ lfdchan(void *fd)
 int
 lfdfd(int fd)
 {
-	return newfd(lfdchan((void*)(uintptr)fd));
+	return newfd(lfdchan((void*)(uintptr)fd), 0);
 }
 
 static Chan*

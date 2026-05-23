@@ -40,7 +40,7 @@ lfdfd(int fd)
 	}
 	if(h == INVALID_HANDLE_VALUE)
 		return -1;
-	return newfd(lfdchan((void*)h));
+	return newfd(lfdchan((void*)h), 0);
 }
 
 static Chan*

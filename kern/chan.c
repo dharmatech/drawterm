@@ -489,10 +489,13 @@ newmhead(Chan *from)
 {
 	Mhead *mh;
 
-	mh = smalloc(sizeof(Mhead));
+	mh = malloc(sizeof(Mhead));
+	if(mh == nil)
+		error(Enomem);
 	mh->ref.ref = 1;
 	mh->from = from;
 	incref(&from->ref);
+	setmalloctag(mh, getcallerpc(&from));
 	return mh;
 }
 
@@ -593,6 +596,11 @@ cmount(Chan *new, Chan *old, int flag, char *spec)
 
 	pg = up->pgrp;
 	wlock(&pg->ns);
+	if(waserror()){
+		wunlock(&pg->ns);
+		mountfree(nm);
+		nexterror();
+	}
 	l = &MOUNTH(pg, old->qid);
 	for(m = *l; m != nil; m = m->hash){
 		if(eqchan(m->from, old, 1))
@@ -609,9 +617,22 @@ cmount(Chan *new, Chan *old, int flag, char *spec)
 		 *  if this is a union mount, add the old
 		 *  node to the mount chain.
 		 */
-		if(order != MREPL)
-			m->mount = newmount(old, 0, nil);
+		if(order != MREPL){
+			if(waserror()){
+				putmhead(m);
+				nexterror();
+			}
+			f = newmount(old, 0, nil);
+			f->umh = m;
+			m->mount = f;
+			pgrpinsert(pg, f);
+			poperror();
+		}
 		*l = m;
+	}
+	for(f = nm; f != nil; f = f->next){
+		f->umh = m;
+		pgrpinsert(pg, f);
 	}
 	wlock(&m->lock);
 	um = m->mount;
@@ -629,13 +650,15 @@ cmount(Chan *new, Chan *old, int flag, char *spec)
 		}
 		m->mount = nm;
 	}
-	order = nm->mountid;
 	wunlock(&m->lock);
+	for(f = um; f != nil; f = f->next)
+		pgrpremove(pg, f);
 	wunlock(&pg->ns);
+	poperror();
 
 	mountfree(um);
 
-	return order;
+	return 0;
 }
 
 void
@@ -673,19 +696,23 @@ cunmount(Chan *mnt, Chan *mounted)
 	}
 
 	wlock(&m->lock);
-	f = m->mount;
 	if(mounted == nil){
-		*l = m->hash;
+		for(f = m->mount; f != nil; f = f->next)
+			pgrpremove(pg, f);
+		f = m->mount;
 		m->mount = nil;
+		*l = m->hash;
 		wunlock(&m->lock);
 		wunlock(&pg->ns);
 		mountfree(f);
 		putmhead(m);
 		return;
 	}
-	for(p = &m->mount; f != nil; f = f->next){
+	p = &m->mount;
+	for(f = m->mount; f != nil; f = f->next){
 		if(eqchan(f->to, mounted, 1) ||
 		  (f->to->mchan != nil && eqchan(f->to->mchan, mounted, 1))){
+			pgrpremove(pg, f);
 			*p = f->next;
 			f->next = nil;
 			if(m->mount == nil){
@@ -1189,24 +1216,20 @@ namec(char *aname, int amode, int omode, ulong perm)
 			up->genbuf[n++] = *name++;
 		}
 		up->genbuf[n] = '\0';
-		/*
-		 *  noattach is sandboxing.
-		 *
-		 *  the OK exceptions are:
-		 *	|  it only gives access to pipes you create
-		 *	d  this process's file descriptors
-		 *	e  this process's environment
-		 *  the iffy exceptions are:
-		 *	c  time and pid, but also cons and consctl
-		 *	p  control of your own processes (and unfortunately
-		 *	   any others left unprotected)
-		 */
 		n = chartorune(&r, up->genbuf+1)+1;
-		if(up->pgrp->noattach && utfrune("|decp", r)==nil)
-			error(Enoattach);
 		t = devno(r);
-		if(t == -1)
+		if(t < 0)
 			error(Ebadsharp);
+		/*
+		 * When sandboxing, unmounting a sharp from a union is a valid
+		 * operation even if the device is blocked.
+		 * Doing any walks down the device could leak information
+		 * about the existence of files.
+		 */
+		if((amode != Aunmount || up->genbuf[n] || *name)
+		&& devmasked(up->pgrp, t))
+			error(Enoattach);
+
 		c = devtab[t]->attach(up->genbuf+n);
 		break;
 
@@ -1354,9 +1377,6 @@ namec(char *aname, int amode, int omode, ulong perm)
 			saveregisters();
 
 			c = devtab[c->type]->open(c, omode&~OCEXEC);
-
-			if(omode & OCEXEC)
-				c->flag |= CCEXEC;
 			if(omode & ORCLOSE)
 				c->flag |= CRCLOSE;
 			break;
@@ -1457,11 +1477,9 @@ namec(char *aname, int amode, int omode, ulong perm)
 			incref(&cnew->path->ref);
 
 			cnew = devtab[cnew->type]->create(cnew, e.elems[e.nelems-1], omode&~(OEXCL|OCEXEC), perm);
-			poperror();
-			if(omode & OCEXEC)
-				cnew->flag |= CCEXEC;
 			if(omode & ORCLOSE)
 				cnew->flag |= CRCLOSE;
+			poperror();
 			putmhead(m);
 			cclose(c);
 			c = cnew;
