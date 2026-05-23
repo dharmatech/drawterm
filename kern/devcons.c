@@ -5,6 +5,9 @@
 #include	"error.h"
 
 #include 	"keyboard.h"
+#include 	"draw.h"
+#include 	"memdraw.h"
+#include 	"screen.h"
 
 #include	<authsrv.h>
 
@@ -472,6 +475,8 @@ consopen(Chan *c, int omode)
 		break;
 
 	case Qsnarf:
+		if(gscreen == nil)
+			error(Egreg);
 		if(omode == ORDWR)
 			error(Eperm);
 		if(omode == OREAD)
@@ -508,6 +513,8 @@ consclose(Chan *c)
 		break;
 
 	case Qsnarf:
+		if(gscreen == nil)
+			error(Egreg);
 		if(c->mode == OWRITE)
 			clipwrite(c->aux);
 		free(c->aux);
@@ -625,6 +632,8 @@ consread(Chan *c, void *buf, long n, vlong off)
 		return 0;
 
 	case Qsnarf:
+		if(gscreen == nil)
+			error(Egreg);
 		if(offset == 0){
 			free(c->aux);
 			c->aux = clipread();
@@ -776,6 +785,8 @@ conswrite(Chan *c, void *va, long n, vlong off)
 		return showfilewrite(a, n);
 
 	case Qsnarf:
+		if(gscreen == nil)
+			error(Egreg);
 		if(offset >= SnarfSize || offset+n >= SnarfSize)
 			error(Etoobig);
 		snarftab->qid.vers++;
