@@ -201,6 +201,7 @@ keyboard_key(void *data, struct wl_keyboard *keyboard, uint32_t serial, uint32_t
 		utf32 = Kend;
 		break;
 	case XKB_KEY_Begin:
+	case XKB_KEY_Home:
 		utf32 = Khome;
 		break;
 	case XKB_KEY_Insert:
