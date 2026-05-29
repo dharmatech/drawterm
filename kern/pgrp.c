@@ -180,9 +180,6 @@ dupfgrp(Fgrp *f)
 void
 closefgrp(Fgrp *f)
 {
-	int i;
-	Chan *c;
-
 	if(f == nil || decref(&f->ref))
 		return;
 
@@ -198,7 +195,7 @@ newmount(Chan *to, int flag, char *spec)
 
 	if(spec == nil)
 		spec = "";
-	m = malloc(sizeof(Mount)+strlen(spec)+1);
+	m = malloc(sizeof(Mount)+(ulong)strlen(spec)+1);
 	if(m == nil)
 		error(Enomem);
 	m->to = to;

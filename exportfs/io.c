@@ -343,10 +343,10 @@ makepath(File *p, char *name)
 	char *c, *s, *path, *seg[256];
 
 	seg[0] = name;
-	n = strlen(name)+2;
+	n = (int)strlen(name)+2;
 	for(i = 1; i < 256 && p; i++, p = p->parent){
 		seg[i] = p->name;
-		n += strlen(p->name)+1;
+		n += (int)strlen(p->name)+1;
 	}
 	path = emallocz(n);
 	s = path;

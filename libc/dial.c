@@ -100,7 +100,7 @@ csdial(DS *ds)
 	 */
 	snprint(buf, sizeof(buf), "%s!%s", ds->proto, ds->rem);
 	dttrace("dial: cs translate %s", buf);
-	if(write(fd, buf, strlen(buf)) < 0){
+	if(write(fd, buf, (int)strlen(buf)) < 0){
 		dttrace("dial: cs translate write failed: %r");
 		close(fd);
 		return -1;
@@ -175,7 +175,7 @@ call(char *clone, char *dest, DS *ds)
 	else
 		snprint(name, sizeof(name), "connect %s", dest);
 	dttrace("dial: writing ctl %s", name);
-	if(write(cfd, name, strlen(name)) < 0){
+	if(write(cfd, name, (int)strlen(name)) < 0){
 		dttrace("dial: ctl write failed: %r");
 		close(cfd);
 		return -1;

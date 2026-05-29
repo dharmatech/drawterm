@@ -235,7 +235,7 @@ so_gethostbyname(char *host, char **hostv, int n)
 		case AF_INET:
 		case AF_INET6:
 			l = sizeof(buf);
-			WSAAddressToStringA(p->ai_addr, p->ai_addrlen, NULL, buf, &l);
+			WSAAddressToStringA(p->ai_addr, (DWORD)p->ai_addrlen, NULL, buf, &l);
 			break;
 		}
 		hostv[i++] = strdup(buf);

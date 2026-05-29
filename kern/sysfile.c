@@ -207,6 +207,7 @@ _sysfd2path(int fd, char *buf, uint nbuf)
 	uint len;
 
 	c = fdtochan(fd, -1, 0, 1);
+	len = nbuf;
 	snprint(buf, len, "%s", chanpath(c));
 	cclose(c);
 	return 0;
@@ -913,7 +914,7 @@ _sysfstat(int fd, void *s, long n)
 	}
 	r = devtab[c->type]->stat(c, s, l);
 	if((name = pathlast(c->path)) != nil)
-		r = dirsetname(name, strlen(name), s, r, l);
+		r = dirsetname(name, (int)strlen(name), s, r, l);
 	cclose(c);
 	poperror();
 	return r;
@@ -935,7 +936,7 @@ _sysstat(char *name, void *s, long n)
 	}
 	r = devtab[c->type]->stat(c, s, l);
 	if((name = pathlast(c->path)) != nil)
-		r = dirsetname(name, strlen(name), s, r, l);
+		r = dirsetname(name, (int)strlen(name), s, r, l);
 	cclose(c);
 	poperror();
 	return r;
@@ -1132,7 +1133,7 @@ __syswstat(Chan *c, void *d, long nd)
 		dirname(d, &namelen);
 		if(namelen){
 			p = chanpath(c);
-			namelenerror(p, strlen(p), Eismtpt);
+			namelenerror(p, (int)strlen(p), Eismtpt);
 		}
 	}
 	l = devtab[c->type]->wstat(c, d, nd);
@@ -1508,7 +1509,7 @@ errstr(char *buf, uint n)
 	memmove(tmp, p, ERRMAX);
 	utfecpy(p, p+ERRMAX, buf);
 	utfecpy(buf, buf+n, tmp);
-	return strlen(buf);
+	return (int)strlen(buf);
 }
 
 int
@@ -1518,7 +1519,7 @@ rerrstr(char *buf, uint n)
 
 	p = up->nerrlab ? up->errstr : up->syserrstr;
 	utfecpy(buf, buf+n, p);
-	return strlen(buf);
+	return (int)strlen(buf);
 }
 
 void*

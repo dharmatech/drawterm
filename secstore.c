@@ -320,7 +320,7 @@ writerr(SConn *conn, char *s)
 	char buf[Maxmsg];
 
 	snprint(buf, Maxmsg, "!%s", s);
-	conn->write(conn, (uchar*)buf, strlen(buf));
+	conn->write(conn, (uchar*)buf, (int)strlen(buf));
 }
 
 static int
@@ -355,7 +355,7 @@ getfile(SConn *conn, uchar *key, int nkey)
 	memset(&aes, 0, sizeof aes);
 
 	snprint(s, Maxmsg, "GET %s\n", gf);
-	conn->write(conn, (uchar*)s, strlen(s));
+	conn->write(conn, (uchar*)s, (int)strlen(s));
 
 	/* get file size */
 	s[0] = '\0';
@@ -460,8 +460,8 @@ longhash(char *ver, char *C, uchar *passwd, mpint *H)
 	int i, n, nver, nC;
 	uchar buf[140], key[1];
 
-	nver = strlen(ver);
-	nC = strlen(C);
+	nver = (int)strlen(ver);
+	nC = (int)strlen(C);
 	n = nver + nC + SHA1dlen;
 	Cp = (uchar*)emalloc(n);
 	memmove(Cp, ver, nver);
@@ -484,7 +484,7 @@ PAK_Hi(char *C, char *passphrase, mpint *H, mpint *Hi)
 {
 	uchar passhash[SHA1dlen];
 
-	sha1((uchar *)passphrase, strlen(passphrase), passhash, nil);
+	sha1((uchar *)passphrase, (ulong)strlen(passphrase), passhash, nil);
 	initPAKparams();
 	longhash(VERSION, C, passhash, H);
 	mpinvert(H, pak->p, Hi);
@@ -498,20 +498,20 @@ shorthash(char *mess, char *C, char *S, char *m, char *mu, char *sigma, char *Hi
 {
 	SHA1state *state;
 
-	state = sha1((uchar*)mess, strlen(mess), 0, 0);
-	state = sha1((uchar*)C, strlen(C), 0, state);
-	state = sha1((uchar*)S, strlen(S), 0, state);
-	state = sha1((uchar*)m, strlen(m), 0, state);
-	state = sha1((uchar*)mu, strlen(mu), 0, state);
-	state = sha1((uchar*)sigma, strlen(sigma), 0, state);
-	state = sha1((uchar*)Hi, strlen(Hi), 0, state);
-	state = sha1((uchar*)mess, strlen(mess), 0, state);
-	state = sha1((uchar*)C, strlen(C), 0, state);
-	state = sha1((uchar*)S, strlen(S), 0, state);
-	state = sha1((uchar*)m, strlen(m), 0, state);
-	state = sha1((uchar*)mu, strlen(mu), 0, state);
-	state = sha1((uchar*)sigma, strlen(sigma), 0, state);
-	sha1((uchar*)Hi, strlen(Hi), digest, state);
+	state = sha1((uchar*)mess, (ulong)strlen(mess), 0, 0);
+	state = sha1((uchar*)C, (ulong)strlen(C), 0, state);
+	state = sha1((uchar*)S, (ulong)strlen(S), 0, state);
+	state = sha1((uchar*)m, (ulong)strlen(m), 0, state);
+	state = sha1((uchar*)mu, (ulong)strlen(mu), 0, state);
+	state = sha1((uchar*)sigma, (ulong)strlen(sigma), 0, state);
+	state = sha1((uchar*)Hi, (ulong)strlen(Hi), 0, state);
+	state = sha1((uchar*)mess, (ulong)strlen(mess), 0, state);
+	state = sha1((uchar*)C, (ulong)strlen(C), 0, state);
+	state = sha1((uchar*)S, (ulong)strlen(S), 0, state);
+	state = sha1((uchar*)m, (ulong)strlen(m), 0, state);
+	state = sha1((uchar*)mu, (ulong)strlen(mu), 0, state);
+	state = sha1((uchar*)sigma, (ulong)strlen(sigma), 0, state);
+	sha1((uchar*)Hi, (ulong)strlen(Hi), digest, state);
 }
 
 // On input, conn provides an open channel to the server;
@@ -544,7 +544,7 @@ PAKclient(SConn *conn, char *C, char *pass, char **pS)
 	mess = (char*)emalloc(2*Maxmsg+2);
 	mess2 = mess+Maxmsg+1;
 	snprint(mess, Maxmsg, "%s\tPAK\nC=%s\nm=%s\n", VERSION, C, hexm);
-	conn->write(conn, (uchar*)mess, strlen(mess));
+	conn->write(conn, (uchar*)mess, (int)strlen(mess));
 
 	// recv g**y, S, check hash1(g**xy)
 	if(readstr(conn, mess) < 0){
@@ -589,7 +589,7 @@ PAKclient(SConn *conn, char *C, char *pass, char **pS)
 	shorthash("client", C, S, hexm, hexmu, hexsigma, hexHi, digest);
 	enc64(kc, sizeof kc, digest, SHA1dlen);
 	snprint(mess2, Maxmsg, "k'=%s\n", kc);
-	conn->write(conn, (uchar*)mess2, strlen(mess2));
+	conn->write(conn, (uchar*)mess2, (int)strlen(mess2));
 
 	// set session key
 	shorthash("session", C, S, hexm, hexmu, hexsigma, hexHi, digest);
@@ -657,14 +657,14 @@ secstorefetch(char *addr, char *owner, char *password)
 			goto Out;
 		}
 		strcpy(s+3, sta);
-		conn->write(conn, (uchar*)s, strlen(s));
+		conn->write(conn, (uchar*)s, (int)strlen(s));
 		readstr(conn, s);
 	}
 	if(strcmp(s, "OK") !=0){
 		werrstr("%s", s);
 		goto Out;
 	}
-	if((rv = getfile(conn, (uchar*)pass, strlen(pass))) == nil)
+	if((rv = getfile(conn, (uchar*)pass, (int)strlen(pass))) == nil)
 		goto Out;
 	strcpy(bye, "BYE");
 	conn->write(conn, (uchar*)bye, 3);

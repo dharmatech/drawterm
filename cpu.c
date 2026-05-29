@@ -477,7 +477,7 @@ writestr(int fd, char *str, char *thing, int ignore)
 {
 	int l, n;
 
-	l = strlen(str);
+	l = (int)strlen(str);
 	n = write(fd, str, l+1);
 	if(!ignore && n < 0)
 		sysfatal("writing network: %s: %r", thing);
@@ -819,7 +819,8 @@ p9any(int fd)
 	proto = estrdup(proto);
 	dttrace("p9any: selected %s for domain %s", proto, dom);
 	sprint(buf2, "%s %s", proto, dom);
-	if(write(fd, buf2, strlen(buf2)+1) != strlen(buf2)+1)
+	n = (int)strlen(buf2)+1;
+	if(write(fd, buf2, n) != n)
 		sysfatal("cannot write user/domain choice in p9any");
 	if(v2){
 		if(readstr(fd, buf, sizeof buf) < 0)
@@ -988,10 +989,10 @@ findkey(Authkey *key, char *user, char *dom, char *proto)
 		if(hex != nil){
 			memset(key, 0, sizeof(*key));
 			if(strcmp(proto, "dp9ik") == 0) {
-				if(dec16(key->aes, AESKEYLEN, hex, strlen(hex)) != AESKEYLEN)
+				if(dec16(key->aes, AESKEYLEN, hex, (int)strlen(hex)) != AESKEYLEN)
 					continue;
 			} else {
-				if(dec16((uchar*)key->des, DESKEYLEN, hex, strlen(hex)) != DESKEYLEN)
+				if(dec16((uchar*)key->des, DESKEYLEN, hex, (int)strlen(hex)) != DESKEYLEN)
 					continue;
 			}
 		} else {

@@ -501,7 +501,7 @@ tlsClientExtensions(TLSconn *conn, int *plen)
 	p = b = nil;
 
 	// RFC6066 - Server Name Identification
-	if(conn->serverName != nil && (n = strlen(conn->serverName)) > 0){
+	if(conn->serverName != nil && (n = (int)strlen(conn->serverName)) > 0){
 		m = p - b;
 		b = erealloc(b, m + 2+2+2+1+2+n);
 		p = b + m;
@@ -1179,7 +1179,7 @@ tlsClient2(int ctl, int hand,
 	if(psklen > 0){
 		if(pskid == nil)
 			pskid = "";
-		m.u.clientKeyExchange.pskid = makebytes((uchar*)pskid, strlen(pskid));
+		m.u.clientKeyExchange.pskid = makebytes((uchar*)pskid, (int)strlen(pskid));
 	}
 	m.u.clientKeyExchange.key = epm;
 	epm = nil;
@@ -2303,7 +2303,7 @@ factotum_rsa_open(RSApub *rsapub)
 		return nil;
 	}
 	s = "proto=rsa service=tls role=client";
-	if(auth_rpc(rpc, "start", s, strlen(s)) == ARok){
+	if(auth_rpc(rpc, "start", s, (int)strlen(s)) == ARok){
 		// roll factotum keyring around to match public key
 		n = mpnew(0);
 		while(auth_rpc(rpc, "read", nil, 0) == ARok){
@@ -2331,7 +2331,7 @@ factotum_rsa_decrypt(AuthRpc *rpc, mpint *cipher)
 	mpfree(cipher);
 	if(p == nil)
 		return nil;
-	rv = auth_rpc(rpc, "write", p, strlen(p));
+	rv = auth_rpc(rpc, "write", p, (int)strlen(p));
 	free(p);
 	if(rv != ARok || auth_rpc(rpc, "read", nil, 0) != ARok)
 		return nil;
@@ -2382,7 +2382,7 @@ tlsP(uchar *buf, int nbuf, uchar *key, int nkey, uchar *label, int nlabel, uchar
 static void
 tls10PRF(uchar *buf, int nbuf, uchar *key, int nkey, char *label, uchar *seed, int nseed)
 {
-	int nlabel = strlen(label);
+	int nlabel = (int)strlen(label);
 	int n = (nkey + 1) >> 1;
 
 	memset(buf, 0, nbuf);
@@ -2396,7 +2396,7 @@ static void
 tls12PRF(uchar *buf, int nbuf, uchar *key, int nkey, char *label, uchar *seed, int nseed)
 {
 	memset(buf, 0, nbuf);
-	tlsP(buf, nbuf, key, nkey, (uchar*)label, strlen(label), seed, nseed,
+	tlsP(buf, nbuf, key, nkey, (uchar*)label, (int)strlen(label), seed, nseed,
 		hmac_sha2_256, SHA2_256dlen);
 }
 

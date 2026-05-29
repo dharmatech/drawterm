@@ -301,7 +301,7 @@ qarg(char *s)
 	char *d, *p;
 	int n, c;
 
-	n = strlen(s);
+	n = (int)strlen(s);
 	d = smalloc(3+2*n);
 	for(p = s; (c = *p) != 0; p++)
 		if(strchr(" \t\n\r\"", c) != nil)
@@ -341,7 +341,7 @@ WinMain(HINSTANCE x, HINSTANCE y, LPSTR z, int w)
 	wchar_t *warg;
 
 	warg = GetCommandLineW();
-	n = wcslen(warg)*UTFmax+1;
+	n = (int)wcslen(warg)*UTFmax+1;
 	arg = smalloc(n);
 	WideCharToMultiByte(CP_UTF8, 0, warg, -1, arg, n, 0, 0);
 
@@ -368,7 +368,7 @@ wcmdline(char **argv)
 	n = 0;
 	for(i = 0; argv[i] != nil; i++){
 		q = qarg(argv[i]);
-		n += strlen(q)+1;
+		n += (int)strlen(q)+1;
 		free(q);
 	}
 	s = smalloc((n+1)*sizeof(wchar_t));
@@ -378,7 +378,7 @@ wcmdline(char **argv)
 		if(i != 0)
 			*w++ = L' ';
 		q = qarg(argv[i]);
-		w += MultiByteToWideChar(CP_UTF8, 0, q, strlen(q), w, e - w);
+		w += MultiByteToWideChar(CP_UTF8, 0, q, (int)strlen(q), w, (int)(e - w));
 		free(q);
 	}
 	*w = 0;
@@ -430,7 +430,7 @@ oscmd(char **argv, int nice, char *dir, Chan **fd)
 	si.hStdError = p[2][1];
 	si.lpDesktop = L"";
 
-	i = strlen(dir)+1;
+	i = (int)strlen(dir)+1;
 	wdir = smalloc(i*sizeof(wchar_t));
 	MultiByteToWideChar(CP_UTF8, 0, dir, i, wdir, i);
 
