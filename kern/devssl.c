@@ -111,13 +111,17 @@ static void	dsnew(Chan *c, Dstate **);
 static long	sslput(Dstate *s, Block * volatile b);
 
 char *sslnames[] = {
-[Qclonus]	"clone",
-[Qdata]		"data",
-[Qctl]		"ctl",
-[Qsecretin]	"secretin",
-[Qsecretout]	"secretout",
-[Qencalgs]	"encalgs",
-[Qhashalgs]	"hashalgs",
+	nil,
+	nil,
+	nil,
+	"clone",
+	nil,
+	"data",
+	"ctl",
+	"secretin",
+	"secretout",
+	"encalgs",
+	"hashalgs",
 };
 
 static int

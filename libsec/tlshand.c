@@ -330,12 +330,13 @@ static struct {
 	int len;
 } hashfun[] = {
 /*	[0x00]  is reserved for MD5+SHA1 for < TLS1.2 */
-	[0x01]	{md5,		MD5dlen},
-	[0x02]	{sha1,		SHA1dlen},
-	[0x03]	{sha2_224,	SHA2_224dlen},
-	[0x04]	{sha2_256,	SHA2_256dlen},
-	[0x05]	{sha2_384,	SHA2_384dlen},
-	[0x06]	{sha2_512,	SHA2_512dlen},
+	{nil,		0},
+	{md5,		MD5dlen},
+	{sha1,		SHA1dlen},
+	{sha2_224,	SHA2_224dlen},
+	{sha2_256,	SHA2_256dlen},
+	{sha2_384,	SHA2_384dlen},
+	{sha2_512,	SHA2_512dlen},
 };
 
 // signature algorithms (only RSA and ECDSA at the moment)

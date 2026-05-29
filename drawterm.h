@@ -7,5 +7,5 @@ extern int dialfactotum(void);
 extern char *getuser(void);
 extern void cpumain(int, char**);
 extern char *estrdup(char*);
+extern void dttrace(char*, ...);
 extern int aanclient(char*, int);
-

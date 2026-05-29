@@ -7,22 +7,30 @@
 #define QIDPATH	((1LL<<48)-1)
 vlong newqid = 0;
 
-void (*fcalls[])(Fsrpc*) =
+void (*fcalls[Tmax])(Fsrpc*);
+
+static void
+initfcalls(void)
 {
-	[Tversion]	Xversion,
-	[Tauth]	Xauth,
-	[Tflush]	Xflush,
-	[Tattach]	Xattach,
-	[Twalk]		Xwalk,
-	[Topen]		slave,
-	[Tcreate]	Xcreate,
-	[Tclunk]	Xclunk,
-	[Tread]		slave,
-	[Twrite]	slave,
-	[Tremove]	Xremove,
-	[Tstat]		Xstat,
-	[Twstat]	Xwstat,
-};
+	static int init;
+
+	if(init)
+		return;
+	fcalls[Tversion] = Xversion;
+	fcalls[Tauth] = Xauth;
+	fcalls[Tflush] = Xflush;
+	fcalls[Tattach] = Xattach;
+	fcalls[Twalk] = Xwalk;
+	fcalls[Topen] = slave;
+	fcalls[Tcreate] = Xcreate;
+	fcalls[Tclunk] = Xclunk;
+	fcalls[Tread] = slave;
+	fcalls[Twrite] = slave;
+	fcalls[Tremove] = Xremove;
+	fcalls[Tstat] = Xstat;
+	fcalls[Twstat] = Xwstat;
+	init = 1;
+}
 
 /* accounting and debugging counters */
 int	filecnt;
@@ -44,6 +52,7 @@ io(int rfd, int wfd)
 
 	netfd[0] = rfd;
 	netfd[1] = wfd;
+	initfcalls();
 
 	for(;;) {
 		r = getsbuf();

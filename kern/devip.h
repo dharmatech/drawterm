@@ -5,6 +5,7 @@ enum
 };
 
 int		so_socket(int, unsigned char*);
+void		so_close(int);
 void		so_connect(int, unsigned char*, unsigned short);
 void		so_getsockname(int, unsigned char*, unsigned short*);
 void		so_bind(int, int, unsigned short, unsigned char*);

@@ -3,6 +3,8 @@
 
 typedef struct DS DS;
 
+extern void dttrace(char*, ...);
+
 static int	call(char*, char*, DS*);
 static int	csdial(DS*);
 static void	_dial_string_parse(char*, DS*);
@@ -42,6 +44,11 @@ dial(char *dest, char *local, char *dir, int *cfdp)
 	ds.cfdp = cfdp;
 
 	_dial_string_parse(dest, &ds);
+	dttrace("dial: dest=%s netdir=%s proto=%s rem=%s",
+		dest,
+		ds.netdir ? ds.netdir : "(default)",
+		ds.proto ? ds.proto : "(nil)",
+		ds.rem ? ds.rem : "(nil)");
 	if(ds.netdir)
 		return csdial(&ds);
 
@@ -79,10 +86,12 @@ csdial(DS *ds)
 	 *  open connection server
 	 */
 	snprint(buf, sizeof(buf), "%s/cs", ds->netdir);
+	dttrace("dial: opening cs %s", buf);
 	fd = open(buf, ORDWR);
 	if(fd < 0){
 		/* no connection server, don't translate */
 		snprint(clone, sizeof(clone), "%s/%s/clone", ds->netdir, ds->proto);
+		dttrace("dial: no cs, calling clone=%s rem=%s", clone, ds->rem);
 		return call(clone, ds->rem, ds);
 	}
 
@@ -90,7 +99,9 @@ csdial(DS *ds)
 	 *  ask connection server to translate
 	 */
 	snprint(buf, sizeof(buf), "%s!%s", ds->proto, ds->rem);
+	dttrace("dial: cs translate %s", buf);
 	if(write(fd, buf, strlen(buf)) < 0){
+		dttrace("dial: cs translate write failed: %r");
 		close(fd);
 		return -1;
 	}
@@ -105,10 +116,12 @@ csdial(DS *ds)
 	strcpy(err, "cs gave empty translation list");
 	while((n = read(fd, buf, sizeof(buf) - 1)) > 0){
 		buf[n] = 0;
+		dttrace("dial: cs line %s", buf);
 		p = strchr(buf, ' ');
 		if(p == 0)
 			continue;
 		*p++ = 0;
+		dttrace("dial: call clone=%s dest=%s", buf, p);
 		rv = call(buf, p, ds);
 		if(rv >= 0)
 			break;
@@ -133,12 +146,16 @@ call(char *clone, char *dest, DS *ds)
 	char name[Maxpath], data[Maxpath], *p;
 
 	cfd = open(clone, ORDWR);
-	if(cfd < 0)
+	if(cfd < 0){
+		dttrace("dial: open clone %s failed: %r", clone);
 		return -1;
+	}
+	dttrace("dial: clone %s opened", clone);
 
 	/* get directory name */
 	n = read(cfd, name, sizeof(name)-1);
 	if(n < 0){
+		dttrace("dial: clone read failed: %r");
 		close(cfd);
 		return -1;
 	}
@@ -157,7 +174,9 @@ call(char *clone, char *dest, DS *ds)
 		snprint(name, sizeof(name), "connect %s %s", dest, ds->local);
 	else
 		snprint(name, sizeof(name), "connect %s", dest);
+	dttrace("dial: writing ctl %s", name);
 	if(write(cfd, name, strlen(name)) < 0){
+		dttrace("dial: ctl write failed: %r");
 		close(cfd);
 		return -1;
 	}
@@ -166,9 +185,11 @@ call(char *clone, char *dest, DS *ds)
 	fd = open(data, ORDWR);
 	if(fd < 0){
 print("open %s: %r\n", data);
+		dttrace("dial: open data %s failed: %r", data);
 		close(cfd);
 		return -1;
 	}
+	dttrace("dial: data %s opened", data);
 	if(ds->cfdp)
 		*ds->cfdp = cfd;
 	else

@@ -1,4 +1,5 @@
 #include <windows.h>
+#include <shellapi.h>
 #include "u.h"
 #include "lib.h"
 #include "dat.h"
@@ -11,6 +12,9 @@ struct Oproc {
 };
 
 static int tlsx = TLS_OUT_OF_INDEXES;
+static HANDLE logh = INVALID_HANDLE_VALUE;
+static CRITICAL_SECTION loglock;
+static int logready;
 
 Proc*
 _getproc(void)
@@ -39,10 +43,54 @@ oserror(void)
 }
 
 void
+oslog(char *s, int n)
+{
+	DWORD written;
+
+	if(!logready || logh == INVALID_HANDLE_VALUE || n <= 0)
+		return;
+	EnterCriticalSection(&loglock);
+	WriteFile(logh, s, n, &written, nil);
+	LeaveCriticalSection(&loglock);
+}
+
+static void
+oslogopen(void)
+{
+	wchar_t path[MAX_PATH];
+	DWORD n;
+
+	n = GetEnvironmentVariableW(L"DRAWTERM_LOG", path, nelem(path));
+	if(n == 0 || n >= nelem(path))
+		return;
+	InitializeCriticalSection(&loglock);
+	logh = CreateFileW(path, FILE_APPEND_DATA, FILE_SHARE_READ|FILE_SHARE_WRITE, nil,
+		OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nil);
+	if(logh != INVALID_HANDLE_VALUE)
+		logready = 1;
+}
+
+static LONG WINAPI
+crashlog(EXCEPTION_POINTERS *ep)
+{
+	char buf[128];
+	int n;
+
+	n = wsprintfA(buf, "drawterm: unhandled exception 0x%08X at %p\n",
+		(uint)ep->ExceptionRecord->ExceptionCode,
+		ep->ExceptionRecord->ExceptionAddress);
+	oslog(buf, n);
+	return EXCEPTION_EXECUTE_HANDLER;
+}
+
+void
 osinit(void)
 {
 	Oproc *t;
 	static Proc firstprocCTstore;
+
+	oslogopen();
+	SetUnhandledExceptionFilter(crashlog);
 
 	_setproc(&firstprocCTstore);
 	t = (Oproc*)firstprocCTstore.oproc;
@@ -130,7 +178,7 @@ procwakeup(Proc *p)
 	ReleaseSemaphore(op->sema, 1, 0);
 }
 
-BOOLEAN WINAPI (*RtlGenRandom)(PVOID, ULONG);
+static BOOLEAN (WINAPI *pRtlGenRandom)(PVOID, ULONG);
 
 void
 randominit(void)
@@ -139,13 +187,13 @@ randominit(void)
 	
 	mod = LoadLibraryW(L"ADVAPI32.DLL");
 	if(mod != NULL)
-		RtlGenRandom = (void *) GetProcAddress(mod, "SystemFunction036");
+		pRtlGenRandom = (BOOLEAN (WINAPI *)(PVOID, ULONG)) GetProcAddress(mod, "SystemFunction036");
 }
 
 ulong
 randomread(void *v, ulong n)
 {
-	RtlGenRandom(v, n);
+	pRtlGenRandom(v, n);
 	return n;
 }
 

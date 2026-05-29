@@ -108,6 +108,13 @@ oserror(void)
 	nexterror();
 }
 
+void
+oslog(char *s, int n)
+{
+	USED(s);
+	USED(n);
+}
+
 static void*
 tramp(void *vp)
 {

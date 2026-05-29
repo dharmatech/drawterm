@@ -1,0 +1,38 @@
+Native Windows Build With MSVC
+==============================
+
+This build path is additive.  It uses the existing Win32 drawterm backend and
+does not replace the Unix, macOS, or MinGW makefiles.
+
+From an x64 Visual Studio 2022 developer shell, run:
+
+	nmake /f NMakefile.msvc
+
+The output executable is:
+
+	build\msvc\drawterm.exe
+
+For diagnostics, set `DRAWTERM_LOG` to a writable file path before running
+drawterm. Console output, fatal errors, panics, and unhandled exception details
+will be appended to that file. Pass `-v` or set `DRAWTERM_VERBOSE=1` to add
+connection and authentication stage tracing.
+
+The helper script `test-msvc-drawterm.ps1` runs the MSVC executable with
+diagnostics enabled, waits for it to exit, and prints the captured log:
+
+	.\test-msvc-drawterm.ps1
+
+The script defaults to `-h 127.0.0.1 -a 127.0.0.1 -u glenda` and uses
+`$env:PASS`, falling back to `cleartext`. For an interactive manual
+test, disable the timeout and close the drawterm window when done:
+
+	.\test-msvc-drawterm.ps1 -TimeoutSeconds 0
+
+Use a positive `-TimeoutSeconds` value to stop a hung test run automatically.
+
+To clean the MSVC build artifacts:
+
+	nmake /f NMakefile.msvc clean
+
+The normal upstream build files remain the source of truth for non-MSVC
+targets.

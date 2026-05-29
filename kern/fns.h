@@ -129,6 +129,7 @@ int		oscmdkill(void*);
 void		oscmdfree(void*);
 void		oserrstr(void);
 void		oserror(void);
+void		oslog(char*, int);
 void		osexit(void);
 Block*		packblock(Block*);
 Block*		padblock(Block*, int);

@@ -258,14 +258,18 @@ static char	*tlsstate(int s);
 static void	pdump(int, void*, char*);
 
 static char *tlsnames[] = {
-[Qclonus]		"clone",
-[Qencalgs]	"encalgs",
-[Qhashalgs]	"hashalgs",
-[Qdata]		"data",
-[Qctl]		"ctl",
-[Qhand]		"hand",
-[Qstatus]		"status",
-[Qstats]		"stats",
+	nil,
+	nil,
+	nil,
+	"clone",
+	"encalgs",
+	"hashalgs",
+	nil,
+	"data",
+	"ctl",
+	"hand",
+	"status",
+	"stats",
 };
 
 static int convdir[] = { Qctl, Qdata, Qhand, Qstatus, Qstats };

@@ -28,6 +28,7 @@ static int	norcpu;
 static int	nokbd;
 static int	nogfx;
 static int	nineflag;
+static int	verbose;
 
 static char	*ealgs = "rc4_256 sha1";
 
@@ -44,6 +45,20 @@ char *geometry;
 int scalef;
 
 extern void	guimain(void);
+
+void
+dttrace(char *fmt, ...)
+{
+	va_list arg;
+
+	if(!verbose)
+		return;
+	fprint(2, "drawterm: ");
+	va_start(arg, fmt);
+	vfprint(2, fmt, arg);
+	va_end(arg);
+	fprint(2, "\n");
+}
 
 char*
 estrdup(char *s)
@@ -156,19 +171,27 @@ rcpu(char *host, char *cmd)
 "echo -n hangup >/proc/$pid/notepg\n";
 	int fd;
 
-	if((fd = dial(netmkaddr(host, "tcp", "rcpu"), nil, nil, nil)) < 0)
+	dttrace("dialing rcpu on %s", host);
+	if((fd = dial(netmkaddr(host, "tcp", "rcpu"), nil, nil, nil)) < 0){
+		dttrace("rcpu dial failed: %r");
 		return;
+	}
+	dttrace("rcpu connected");
 
 	/* provide /dev/kbd for kbdfs */
 	if(!nokbd)
 		bind("#b", "/dev", MAFTER);
 
+	dttrace("starting p9any/tls authentication for rcpu");
 	fd = p9authtls(fd);
+	dttrace("rcpu authentication complete");
 	if(aanfilter){
 		fd = startaan(host, fd);
 		if(fd < 0)
 			sysfatal("startaan: %r");
+		dttrace("starting p9any/tls authentication for aan");
 		fd = p9authtls(fd);
+		dttrace("aan authentication complete");
 	}
 	memset(secstorebuf, 0, sizeof(secstorebuf));	/* forget secstore secrets */
 
@@ -182,12 +205,14 @@ rcpu(char *host, char *cmd)
 	if(fprint(fd, "%7ld\n%s", strlen(cmd), cmd) < 0)
 		sysfatal("sending script: %r");
 	free(cmd);
+	dttrace("remote rcpu script sent");
 
 	/* /env/rstatus is written by the remote script to communicate exit status */
 	remove("/env/rstatus");
 	atexit(rcpuexit);
 
 	/* Begin serving the namespace */
+	dttrace("starting exportfs for rcpu session");
 	exportfs(fd, fd);
 }
 
@@ -197,8 +222,12 @@ ncpu(char *host, char *cmd)
 	char buf[MaxStr];
 	int fd;
 
-	if((fd = dial(netmkaddr(host, "tcp", "ncpu"), nil, nil, nil)) < 0)
+	dttrace("dialing ncpu on %s", host);
+	if((fd = dial(netmkaddr(host, "tcp", "ncpu"), nil, nil, nil)) < 0){
+		dttrace("ncpu dial failed: %r");
 		return;
+	}
+	dttrace("ncpu connected");
 
 	/* negotiate authentication mechanism */
 	strcpy(buf, "p9");
@@ -207,13 +236,17 @@ ncpu(char *host, char *cmd)
 		strcat(buf, ealgs);
 	}
 	writestr(fd, buf, "negotiating authentication method", 0);
+	dttrace("sent ncpu auth mechanism list");
 	if(readstr(fd, buf, sizeof buf) < 0)
 		sysfatal("can't negotiate authentication method: %r");
 	if(*buf)
 		sysfatal("%s", buf);
+	dttrace("ncpu auth mechanism accepted");
 
 	/* authenticate and encrypt the channel */
+	dttrace("starting p9 authentication for ncpu");
 	fd = p9authssl(fd);
+	dttrace("ncpu authentication complete");
 
 	/* tell remote side the command */
 	if(cmd != nil){
@@ -248,6 +281,7 @@ ncpu(char *host, char *cmd)
 	write(fd, "OK", 2);
 
 	/* Begin serving the gnot namespace */
+	dttrace("starting exportfs for ncpu session");
 	exportfs(fd, fd);
 }
 
@@ -261,7 +295,7 @@ usage(void)
 		"[-r root] "
 		"[-g geometry] "
 		"[-x [amount]] "
-		"[-c cmd ...]\n", argv0);
+		"[-v] [-c cmd ...]\n", argv0);
 	exits("usage");
 }
 
@@ -290,6 +324,9 @@ cpumain(int argc, char **argv)
 		break;
 	case 'O':
 		norcpu = 1;
+		break;
+	case 'v':
+		verbose++;
 		break;
 	case 'p':
 		aanfilter = 1;
@@ -355,6 +392,17 @@ cpumain(int argc, char **argv)
 	if(argc != 0)
 		usage();
 
+	if((s = getenv("DRAWTERM_VERBOSE")) != nil){
+		verbose++;
+		free(s);
+	}
+	dttrace("starting host=%s auth=%s user=%s nogfx=%d norcpu=%d cmd=%s",
+		host ? host : "(prompt)",
+		authserver ? authserver : "(prompt)",
+		user ? user : "(prompt)",
+		nogfx, norcpu,
+		cmd ? cmd : "(default)");
+
 	if(nineflag){
 		exportfs(lfdfd(0), lfdfd(1));
 		return;
@@ -362,6 +410,7 @@ cpumain(int argc, char **argv)
 
 	if((pass = getenv("PASS")) != nil)
 		remove("/env/PASS");
+	dttrace("password source: %s", pass ? "PASS environment" : "prompt/factotum/secstore");
 
 	if(!nogfx)
 		guimain();
@@ -384,6 +433,7 @@ cpubody(void)
 	}
 	if(bind("/root", "/", MAFTER) < 0)
 		panic("bind /root: %r");
+	dttrace("namespace initialized");
 
 	if(host == nil)
 		if((host = readcons("cpu", "cpu", 0)) == nil)
@@ -398,16 +448,20 @@ cpubody(void)
 			sysfatal("user terminated input");
 
 	if(mountfactotum() < 0){
+		dttrace("factotum unavailable; trying secstore/password fallback");
 		if(secstore == nil)
 			secstore = authserver;
 	 	if(havesecstore(secstore, user)){
+			dttrace("secstore available for user %s", user);
 			s = secstorefetch(secstore, user, pass);
 			if(s){
 				if(strlen(s) >= sizeof secstorebuf)
 					sysfatal("secstore data too big");
 				strcpy(secstorebuf, s);
+				dttrace("secstore data fetched");
 			}
-		}
+		}else
+			dttrace("secstore unavailable for user %s", user);
 	}
 
 	if(!norcpu)
@@ -469,10 +523,12 @@ p9authssl(int fd)
 	char fromserversecret[21];
 	AuthInfo *ai;
 
+	dttrace("p9authssl: starting p9any");
 	ai = p9any(fd);
 	memset(secstorebuf, 0, sizeof(secstorebuf));	/* forget secstore secrets */
 	if(ai == nil)
 		sysfatal("can't authenticate: %r");
+	dttrace("p9authssl: p9any complete");
 
 	if(ealgs == nil)
 		return fd;
@@ -503,6 +559,7 @@ p9authssl(int fd)
 	fd = pushssl(fd, ealgs, fromclientsecret, fromserversecret, nil);
 	if(fd < 0)
 		sysfatal("p9authssl: pushssl: %r");
+	dttrace("p9authssl: ssl pushed");
 
 	return fd;
 }
@@ -516,9 +573,11 @@ p9authtls(int fd)
 	AuthInfo *ai;
 	TLSconn *conn;
 
+	dttrace("p9authtls: starting p9any");
 	ai = p9any(fd);
 	if(ai == nil)
 		sysfatal("can't authenticate: %r");
+	dttrace("p9authtls: p9any complete");
 
 	conn = mallocz(sizeof(TLSconn), 1);
 	conn->pskID = "p9secret";
@@ -528,6 +587,7 @@ p9authtls(int fd)
 	fd = tlsClient(fd, conn);
 	if(fd < 0)
 		sysfatal("tlsClient: %r");
+	dttrace("p9authtls: tlsClient complete");
 
 	auth_freeAI(ai);
 	free(conn->sessionID);
@@ -722,10 +782,13 @@ p9any(int fd)
 	Ticket t;
 	AuthInfo *ai;
 
-	if((afd = open("/mnt/factotum/ctl", ORDWR)) >= 0)
+	if((afd = open("/mnt/factotum/ctl", ORDWR)) >= 0){
+		dttrace("p9any: using factotum");
 		return p9anyfactotum(fd, afd);
+	}
 	werrstr("");
 
+	dttrace("p9any: reading server negotiation");
 	if(readstr(fd, buf, sizeof buf) < 0)
 		sysfatal("cannot read p9any negotiation: %r");
 	bbuf = buf;
@@ -754,6 +817,7 @@ p9any(int fd)
 	if(proto == nil)
 		sysfatal("server did not offer p9sk1 or dp9ik");
 	proto = estrdup(proto);
+	dttrace("p9any: selected %s for domain %s", proto, dom);
 	sprint(buf2, "%s %s", proto, dom);
 	if(write(fd, buf2, strlen(buf2)+1) != strlen(buf2)+1)
 		sysfatal("cannot write user/domain choice in p9any");
@@ -767,6 +831,7 @@ p9any(int fd)
 	genrandom(cchal, CHALLEN);
 	if(write(fd, cchal, CHALLEN) != CHALLEN)
 		sysfatal("cannot write p9sk1 challenge: %r");
+	dttrace("p9any: challenge sent");
 
 	n = TICKREQLEN;
 	if(dp9ik)
@@ -774,9 +839,11 @@ p9any(int fd)
 
 	if(readn(fd, trbuf, n) != n || convM2TR(trbuf, TICKREQLEN, &tr) <= 0)
 		sysfatal("cannot read ticket request in p9sk1: %r");
+	dttrace("p9any: ticket request received");
 
 	if(!findkey(&authkey, user, tr.authdom, proto)){
-again:		if(!getkey(&authkey, user, tr.authdom, proto, pass))
+again:		dttrace("p9any: requesting key for user %s domain %s proto %s", user, tr.authdom, proto);
+		if(!getkey(&authkey, user, tr.authdom, proto, pass))
 			sysfatal("no password");
 	}
 
@@ -791,6 +858,7 @@ again:		if(!getkey(&authkey, user, tr.authdom, proto, pass))
 	}
 	if(n <= 0)
 		sysfatal("cannot get auth tickets in p9sk1: %r");
+	dttrace("p9any: auth tickets received");
 
 	m = convM2T(tbuf, n, &t, &authkey);
 	if(m <= 0 || t.num != AuthTc){
@@ -813,6 +881,7 @@ again:		if(!getkey(&authkey, user, tr.authdom, proto, pass))
 
 	if(write(fd, tbuf, n) != n)
 		sysfatal("cannot send ticket and authenticator back: %r");
+	dttrace("p9any: ticket and authenticator sent");
 
 	if((n=readn(fd, tbuf, m)) != m || memcmp(tbuf, "cpu:", 4) == 0){
 		if(n <= 4)
@@ -864,6 +933,7 @@ again:		if(!getkey(&authkey, user, tr.authdom, proto, pass))
 	memset(cchal, 0, sizeof(cchal));
 	memset(crand, 0, sizeof(crand));
 	free(proto);
+	dttrace("p9any: complete");
 
 	return ai;
 }

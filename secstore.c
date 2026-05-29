@@ -35,6 +35,7 @@ secdial(char *secstore)
 	p = secstore; /* take it from writehostowner, if set there */
 	if(*p == 0)	  /* else use the authserver */
 		p = "$auth";
+	dttrace("secstore: resolving address %s", p);
 
 	/* translate $auth ourselves.
 	 * authaddr is something like il!host!566 or tcp!host!567.
@@ -57,10 +58,15 @@ secdial(char *secstore)
 			p = f[1];
 			break;
 		}
+		dttrace("secstore: translated $auth to %s", p);
 	}
+	dttrace("secstore: dialing %s", p);
 	fd = dial(netmkaddr(p, "tcp", "secstore"), 0, 0, 0);
-	if(fd >= 0)
+	if(fd >= 0){
+		dttrace("secstore: dial connected");
 		return fd;
+	}
+	dttrace("secstore: dial failed: %r");
 	return -1;
 }
 
@@ -73,10 +79,15 @@ havesecstore(char *addr, char *owner)
 	n = snprint((char*)buf, sizeof buf, testmess, owner);
 	hnputs(buf, 0x8000+n-2);
 
+	dttrace("secstore: checking account for %s", owner);
 	fd = secdial(addr);
-	if(fd < 0)
+	if(fd < 0){
+		dttrace("secstore: account check skipped; dial failed");
 		return 0;
+	}
+	dttrace("secstore: writing account probe");
 	if(write(fd, buf, n) != n || readn(fd, buf, 2) != 2){
+		dttrace("secstore: account probe header failed: %r");
 		close(fd);
 		return 0;
 	}
@@ -86,6 +97,7 @@ havesecstore(char *addr, char *owner)
 		close(fd);
 		return 0;
 	}
+	dttrace("secstore: reading account probe response");
 	m = readn(fd, buf, n);
 	close(fd);
 	if(m != n){
@@ -94,6 +106,7 @@ havesecstore(char *addr, char *owner)
 		return 0;
 	}
 	buf[n] = 0;
+	dttrace("secstore: account probe response: %s", buf);
 	if(strcmp((char*)buf, "!account expired") == 0){
 		werrstr("account expired");
 		return 0;
@@ -665,4 +678,3 @@ Out:
 		free(sta);
 	return rv;
 }
-

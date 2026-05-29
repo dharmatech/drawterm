@@ -40,6 +40,8 @@ drawterm  \- connection to cpu, fs, and auth servers
 .B -x
 .I [amount]
 ] [
+.B -v
+] [
 .B -c
 .I cmd \fR...]
 
@@ -136,6 +138,10 @@ amount or specifying 1 scales using a default picked by macOS, while increasing 
 scale accordingly. 0 disables scaling, nullifying this flag.
 
 .TP
+.B -v
+Print verbose connection and authentication stage messages.
+
+.TP
 .B -c \fIcmd \fR...
 The command to run can be passed with -c cmd ..., otherwise an interactive shell is started. The user's profile is run before the command with $service set to cpu to allow further customization of the environment (see 
 .IR rc (1)
@@ -158,6 +164,14 @@ connection (if set).
 Unless otherwise specified, the address stored in $auth is used for the 
 .IR rcpu (1)
 connection (if set).
+
+.IP DRAWTERM_VERBOSE
+If set, enables the same verbose stage messages as
+.BR -v .
+
+.IP DRAWTERM_LOG
+On Windows, if set to a writable file path, console output, fatal errors, panics,
+and unhandled exception details are appended to that file.
 
 .PP
 .SH SERVICES

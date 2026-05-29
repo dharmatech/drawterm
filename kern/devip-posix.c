@@ -77,6 +77,12 @@ so_socket(int type, unsigned char *addr)
 }
 
 void
+so_close(int fd)
+{
+	close(fd);
+}
+
+void
 so_connect(int fd, unsigned char *raddr, unsigned short rport)
 {
 	struct sockaddr_storage ss;

@@ -369,7 +369,7 @@ ipopen(Chan *c, int omode)
 		sfd = so_accept(lcv->sfd, raddr, &rport);
 		cv = protoclone(p, up->user, sfd);
 		if(cv == 0) {
-			close(sfd);
+			so_close(sfd);
 			error(Enodev);
 		}
 		ipmove(cv->raddr, raddr);
@@ -408,7 +408,8 @@ ipclose(Chan *c)
 		ipzero(cc->raddr);
 		cc->lport = 0;
 		cc->rport = 0;
-		close(cc->sfd);
+		so_close(cc->sfd);
+		cc->sfd = -1;
 		break;
 	}
 }
@@ -894,4 +895,3 @@ Dev ipdevtab =
 	devremove,
 	devwstat,
 };
-

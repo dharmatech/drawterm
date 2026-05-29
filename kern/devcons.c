@@ -136,6 +136,8 @@ kmesgputs(char *str, int n)
 static void
 putstrn0(char *str, int n, int usewrite)
 {
+	oslog(str, n);
+
 	/*
 	 *  how many different output devices do we need?
 	 */

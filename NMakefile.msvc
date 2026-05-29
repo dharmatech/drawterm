@@ -1,0 +1,479 @@
+# Native Windows build with Microsoft Visual C.
+# Run from an x64 Visual Studio developer shell:
+#     nmake /f NMakefile.msvc
+
+BUILD=build\msvc
+TARG=$(BUILD)\drawterm.exe
+
+CC=cl
+LINK=link
+LIBTOOL=lib
+RC=rc
+
+CFLAGS=/nologo /c /utf-8 /std:c17 /W3 /O2 /MT /DWIN32_LEAN_AND_MEAN /DNOMINMAX /DWINDOWS /DUNICODE /DMSVC /D_CRT_SECURE_NO_WARNINGS /D_CRT_SECURE_NO_DEPRECATE /D_CRT_NONSTDC_NO_WARNINGS /D_CRT_NONSTDC_NO_DEPRECATE /D_WINSOCK_DEPRECATED_NO_WARNINGS /Iinclude /I. /Ikern
+LINKFLAGS=/nologo /SUBSYSTEM:WINDOWS /OUT:$(TARG)
+SYSLIBS=kernel32.lib user32.lib gdi32.lib advapi32.lib shell32.lib ws2_32.lib winmm.lib mpr.lib
+
+ROOTOBJ=$(BUILD)\root
+KERNOBJ=$(BUILD)\kern
+EXPORTFSOBJ=$(BUILD)\exportfs
+LIBAUTHOBJ=$(BUILD)\libauth
+LIBAUTHSRVOBJ=$(BUILD)\libauthsrv
+LIBSECOBJ=$(BUILD)\libsec
+LIBMPOBJ=$(BUILD)\libmp
+LIBMEMDRAWOBJ=$(BUILD)\libmemdraw
+LIBMEMLAYEROBJ=$(BUILD)\libmemlayer
+LIBDRAWOBJ=$(BUILD)\libdraw
+GUIOBJ=$(BUILD)\gui-win32
+LIBCOBJ=$(BUILD)\libc
+LIBIPOBJ=$(BUILD)\libip
+MACHOBJ=$(BUILD)\posix-port
+
+KERN_LIB=$(BUILD)\libkern.lib
+EXPORTFS_LIB=$(BUILD)\libexportfs.lib
+LIBAUTH_LIB=$(BUILD)\libauth.lib
+LIBAUTHSRV_LIB=$(BUILD)\libauthsrv.lib
+LIBSEC_LIB=$(BUILD)\libsec.lib
+LIBMP_LIB=$(BUILD)\libmp.lib
+LIBMEMDRAW_LIB=$(BUILD)\libmemdraw.lib
+LIBMEMLAYER_LIB=$(BUILD)\libmemlayer.lib
+LIBDRAW_LIB=$(BUILD)\libdraw.lib
+GUI_LIB=$(BUILD)\libgui.lib
+LIBC_LIB=$(BUILD)\libc.lib
+LIBIP_LIB=$(BUILD)\libip.lib
+MACH_LIB=$(BUILD)\libmachdep.lib
+
+LIBS=\
+	$(KERN_LIB)\
+	$(EXPORTFS_LIB)\
+	$(LIBAUTH_LIB)\
+	$(LIBAUTHSRV_LIB)\
+	$(LIBSEC_LIB)\
+	$(LIBMP_LIB)\
+	$(LIBMEMDRAW_LIB)\
+	$(LIBMEMLAYER_LIB)\
+	$(LIBDRAW_LIB)\
+	$(GUI_LIB)\
+	$(LIBC_LIB)\
+	$(LIBIP_LIB)\
+	$(MACH_LIB)
+
+ROOT_OBJS=\
+	$(ROOTOBJ)\main.obj\
+	$(ROOTOBJ)\cpu.obj\
+	$(ROOTOBJ)\aan.obj\
+	$(ROOTOBJ)\secstore.obj\
+	$(ROOTOBJ)\latin1.obj\
+	$(ROOTOBJ)\win32-factotum.obj
+
+KERN_OBJS=\
+	$(KERNOBJ)\alloc.obj\
+	$(KERNOBJ)\allocb.obj\
+	$(KERNOBJ)\chan.obj\
+	$(KERNOBJ)\data.obj\
+	$(KERNOBJ)\dev.obj\
+	$(KERNOBJ)\devaudio.obj\
+	$(KERNOBJ)\devaudio-win32.obj\
+	$(KERNOBJ)\devcmd.obj\
+	$(KERNOBJ)\devcons.obj\
+	$(KERNOBJ)\devdraw.obj\
+	$(KERNOBJ)\devenv.obj\
+	$(KERNOBJ)\devfs-win32.obj\
+	$(KERNOBJ)\devip.obj\
+	$(KERNOBJ)\devip-win32.obj\
+	$(KERNOBJ)\devkbd.obj\
+	$(KERNOBJ)\devlfd-win32.obj\
+	$(KERNOBJ)\devmnt.obj\
+	$(KERNOBJ)\devmouse.obj\
+	$(KERNOBJ)\devpipe.obj\
+	$(KERNOBJ)\devroot.obj\
+	$(KERNOBJ)\devssl.obj\
+	$(KERNOBJ)\devtls.obj\
+	$(KERNOBJ)\devtab.obj\
+	$(KERNOBJ)\error.obj\
+	$(KERNOBJ)\parse.obj\
+	$(KERNOBJ)\pgrp.obj\
+	$(KERNOBJ)\procinit.obj\
+	$(KERNOBJ)\rwlock.obj\
+	$(KERNOBJ)\sleep.obj\
+	$(KERNOBJ)\stub.obj\
+	$(KERNOBJ)\sysfile.obj\
+	$(KERNOBJ)\qio.obj\
+	$(KERNOBJ)\qlock.obj\
+	$(KERNOBJ)\term.obj\
+	$(KERNOBJ)\waserror.obj\
+	$(KERNOBJ)\win32.obj
+
+EXPORTFS_OBJS=\
+	$(EXPORTFSOBJ)\exportfs.obj\
+	$(EXPORTFSOBJ)\exportsrv.obj\
+	$(EXPORTFSOBJ)\io.obj
+
+LIBAUTH_OBJS=\
+	$(LIBAUTHOBJ)\attr.obj\
+	$(LIBAUTHOBJ)\auth_attr.obj\
+	$(LIBAUTHOBJ)\auth_proxy.obj\
+	$(LIBAUTHOBJ)\auth_rpc.obj
+
+LIBAUTHSRV_OBJS=\
+	$(LIBAUTHSRVOBJ)\_asgetticket.obj\
+	$(LIBAUTHSRVOBJ)\_asrdresp.obj\
+	$(LIBAUTHSRVOBJ)\convA2M.obj\
+	$(LIBAUTHSRVOBJ)\convM2A.obj\
+	$(LIBAUTHSRVOBJ)\convM2PR.obj\
+	$(LIBAUTHSRVOBJ)\convM2T.obj\
+	$(LIBAUTHSRVOBJ)\convM2TR.obj\
+	$(LIBAUTHSRVOBJ)\convPR2M.obj\
+	$(LIBAUTHSRVOBJ)\convT2M.obj\
+	$(LIBAUTHSRVOBJ)\convTR2M.obj\
+	$(LIBAUTHSRVOBJ)\nvcsum.obj\
+	$(LIBAUTHSRVOBJ)\passtokey.obj\
+	$(LIBAUTHSRVOBJ)\readcons.obj\
+	$(LIBAUTHSRVOBJ)\_asgetpakkey.obj\
+	$(LIBAUTHSRVOBJ)\_asgetresp.obj\
+	$(LIBAUTHSRVOBJ)\_asrequest.obj\
+	$(LIBAUTHSRVOBJ)\authpak.obj\
+	$(LIBAUTHSRVOBJ)\form1.obj
+
+LIBSEC_OBJS=\
+	$(LIBSECOBJ)\aes.obj\
+	$(LIBSECOBJ)\aesni.obj\
+	$(LIBSECOBJ)\aesCBC.obj\
+	$(LIBSECOBJ)\aes_gcm.obj\
+	$(LIBSECOBJ)\poly1305.obj\
+	$(LIBSECOBJ)\chacha.obj\
+	$(LIBSECOBJ)\chachablock.obj\
+	$(LIBSECOBJ)\ccpoly.obj\
+	$(LIBSECOBJ)\des.obj\
+	$(LIBSECOBJ)\des3CBC.obj\
+	$(LIBSECOBJ)\desmodes.obj\
+	$(LIBSECOBJ)\ecc.obj\
+	$(LIBSECOBJ)\jacobian.obj\
+	$(LIBSECOBJ)\secp256k1.obj\
+	$(LIBSECOBJ)\secp256r1.obj\
+	$(LIBSECOBJ)\secp384r1.obj\
+	$(LIBSECOBJ)\curve25519.obj\
+	$(LIBSECOBJ)\curve25519_dh.obj\
+	$(LIBSECOBJ)\genrandom.obj\
+	$(LIBSECOBJ)\fastrand.obj\
+	$(LIBSECOBJ)\nfastrand.obj\
+	$(LIBSECOBJ)\prng.obj\
+	$(LIBSECOBJ)\hmac.obj\
+	$(LIBSECOBJ)\hkdf.obj\
+	$(LIBSECOBJ)\pbkdf2.obj\
+	$(LIBSECOBJ)\rsaalloc.obj\
+	$(LIBSECOBJ)\rsadecrypt.obj\
+	$(LIBSECOBJ)\rsaencrypt.obj\
+	$(LIBSECOBJ)\dh.obj\
+	$(LIBSECOBJ)\rc4.obj\
+	$(LIBSECOBJ)\md5.obj\
+	$(LIBSECOBJ)\md5block.obj\
+	$(LIBSECOBJ)\sha1.obj\
+	$(LIBSECOBJ)\sha2_128.obj\
+	$(LIBSECOBJ)\sha2_64.obj\
+	$(LIBSECOBJ)\sha1block.obj\
+	$(LIBSECOBJ)\sha2block128.obj\
+	$(LIBSECOBJ)\sha2block64.obj\
+	$(LIBSECOBJ)\tlshand.obj\
+	$(LIBSECOBJ)\x509.obj\
+	$(LIBSECOBJ)\tsmemcmp.obj
+
+LIBMP_OBJS=\
+	$(LIBMPOBJ)\betomp.obj\
+	$(LIBMPOBJ)\cnfield.obj\
+	$(LIBMPOBJ)\crt.obj\
+	$(LIBMPOBJ)\gmfield.obj\
+	$(LIBMPOBJ)\letomp.obj\
+	$(LIBMPOBJ)\mpadd.obj\
+	$(LIBMPOBJ)\mpaux.obj\
+	$(LIBMPOBJ)\mpcmp.obj\
+	$(LIBMPOBJ)\mpdigdiv.obj\
+	$(LIBMPOBJ)\mpdiv.obj\
+	$(LIBMPOBJ)\mpexp.obj\
+	$(LIBMPOBJ)\mpextendedgcd.obj\
+	$(LIBMPOBJ)\mpfactorial.obj\
+	$(LIBMPOBJ)\mpfield.obj\
+	$(LIBMPOBJ)\mpfmt.obj\
+	$(LIBMPOBJ)\mpinvert.obj\
+	$(LIBMPOBJ)\mpleft.obj\
+	$(LIBMPOBJ)\mplogic.obj\
+	$(LIBMPOBJ)\mpmod.obj\
+	$(LIBMPOBJ)\mpmodop.obj\
+	$(LIBMPOBJ)\mpmul.obj\
+	$(LIBMPOBJ)\mpnrand.obj\
+	$(LIBMPOBJ)\mprand.obj\
+	$(LIBMPOBJ)\mpright.obj\
+	$(LIBMPOBJ)\mpsel.obj\
+	$(LIBMPOBJ)\mpsub.obj\
+	$(LIBMPOBJ)\mptobe.obj\
+	$(LIBMPOBJ)\mptober.obj\
+	$(LIBMPOBJ)\mptoi.obj\
+	$(LIBMPOBJ)\mptole.obj\
+	$(LIBMPOBJ)\mptolel.obj\
+	$(LIBMPOBJ)\mptoui.obj\
+	$(LIBMPOBJ)\mptouv.obj\
+	$(LIBMPOBJ)\mptov.obj\
+	$(LIBMPOBJ)\mpvecadd.obj\
+	$(LIBMPOBJ)\mpveccmp.obj\
+	$(LIBMPOBJ)\mpvecdigmuladd.obj\
+	$(LIBMPOBJ)\mpvecsub.obj\
+	$(LIBMPOBJ)\mpvectscmp.obj\
+	$(LIBMPOBJ)\strtomp.obj
+
+LIBMEMDRAW_OBJS=\
+	$(LIBMEMDRAWOBJ)\alloc.obj\
+	$(LIBMEMDRAWOBJ)\arc.obj\
+	$(LIBMEMDRAWOBJ)\cload.obj\
+	$(LIBMEMDRAWOBJ)\cmap.obj\
+	$(LIBMEMDRAWOBJ)\cread.obj\
+	$(LIBMEMDRAWOBJ)\defont.obj\
+	$(LIBMEMDRAWOBJ)\draw.obj\
+	$(LIBMEMDRAWOBJ)\ellipse.obj\
+	$(LIBMEMDRAWOBJ)\fillpoly.obj\
+	$(LIBMEMDRAWOBJ)\hwdraw.obj\
+	$(LIBMEMDRAWOBJ)\line.obj\
+	$(LIBMEMDRAWOBJ)\load.obj\
+	$(LIBMEMDRAWOBJ)\openmemsubfont.obj\
+	$(LIBMEMDRAWOBJ)\poly.obj\
+	$(LIBMEMDRAWOBJ)\read.obj\
+	$(LIBMEMDRAWOBJ)\string.obj\
+	$(LIBMEMDRAWOBJ)\subfont.obj\
+	$(LIBMEMDRAWOBJ)\unload.obj\
+	$(LIBMEMDRAWOBJ)\write.obj\
+	$(LIBMEMDRAWOBJ)\warp.obj
+
+LIBMEMLAYER_OBJS=\
+	$(LIBMEMLAYEROBJ)\draw.obj\
+	$(LIBMEMLAYEROBJ)\warp.obj\
+	$(LIBMEMLAYEROBJ)\lalloc.obj\
+	$(LIBMEMLAYEROBJ)\layerop.obj\
+	$(LIBMEMLAYEROBJ)\ldelete.obj\
+	$(LIBMEMLAYEROBJ)\lhide.obj\
+	$(LIBMEMLAYEROBJ)\line.obj\
+	$(LIBMEMLAYEROBJ)\load.obj\
+	$(LIBMEMLAYEROBJ)\lorigin.obj\
+	$(LIBMEMLAYEROBJ)\lsetrefresh.obj\
+	$(LIBMEMLAYEROBJ)\ltofront.obj\
+	$(LIBMEMLAYEROBJ)\ltorear.obj\
+	$(LIBMEMLAYEROBJ)\unload.obj
+
+LIBDRAW_OBJS=\
+	$(LIBDRAWOBJ)\alloc.obj\
+	$(LIBDRAWOBJ)\arith.obj\
+	$(LIBDRAWOBJ)\badrect.obj\
+	$(LIBDRAWOBJ)\bytesperline.obj\
+	$(LIBDRAWOBJ)\chan.obj\
+	$(LIBDRAWOBJ)\defont.obj\
+	$(LIBDRAWOBJ)\drawrepl.obj\
+	$(LIBDRAWOBJ)\fmt.obj\
+	$(LIBDRAWOBJ)\icossin.obj\
+	$(LIBDRAWOBJ)\icossin2.obj\
+	$(LIBDRAWOBJ)\rectclip.obj\
+	$(LIBDRAWOBJ)\rgb.obj\
+	$(LIBDRAWOBJ)\warp.obj\
+	$(LIBDRAWOBJ)\mkwarp.obj
+
+GUI_OBJS=$(GUIOBJ)\screen.obj
+
+LIBC_OBJS=\
+	$(LIBCOBJ)\atexit.obj\
+	$(LIBCOBJ)\charstod.obj\
+	$(LIBCOBJ)\cleanname.obj\
+	$(LIBCOBJ)\convD2M.obj\
+	$(LIBCOBJ)\convM2D.obj\
+	$(LIBCOBJ)\convM2S.obj\
+	$(LIBCOBJ)\convS2M.obj\
+	$(LIBCOBJ)\ctime.obj\
+	$(LIBCOBJ)\crypt.obj\
+	$(LIBCOBJ)\dial.obj\
+	$(LIBCOBJ)\dirfstat.obj\
+	$(LIBCOBJ)\dirfwstat.obj\
+	$(LIBCOBJ)\dirmodefmt.obj\
+	$(LIBCOBJ)\dirstat.obj\
+	$(LIBCOBJ)\dirwstat.obj\
+	$(LIBCOBJ)\dofmt.obj\
+	$(LIBCOBJ)\dorfmt.obj\
+	$(LIBCOBJ)\encodefmt.obj\
+	$(LIBCOBJ)\fcallfmt.obj\
+	$(LIBCOBJ)\fltfmt.obj\
+	$(LIBCOBJ)\fmt.obj\
+	$(LIBCOBJ)\fmtfd.obj\
+	$(LIBCOBJ)\fmtfdflush.obj\
+	$(LIBCOBJ)\fmtlock.obj\
+	$(LIBCOBJ)\fmtprint.obj\
+	$(LIBCOBJ)\fmtquote.obj\
+	$(LIBCOBJ)\fmtrune.obj\
+	$(LIBCOBJ)\fmtstr.obj\
+	$(LIBCOBJ)\fmtvprint.obj\
+	$(LIBCOBJ)\fprint.obj\
+	$(LIBCOBJ)\getenv.obj\
+	$(LIBCOBJ)\getfields.obj\
+	$(LIBCOBJ)\lock.obj\
+	$(LIBCOBJ)\mallocz.obj\
+	$(LIBCOBJ)\nan64.obj\
+	$(LIBCOBJ)\netmkaddr.obj\
+	$(LIBCOBJ)\nsec.obj\
+	$(LIBCOBJ)\pow10.obj\
+	$(LIBCOBJ)\pushssl.obj\
+	$(LIBCOBJ)\pushtls.obj\
+	$(LIBCOBJ)\read9pmsg.obj\
+	$(LIBCOBJ)\readn.obj\
+	$(LIBCOBJ)\rune.obj\
+	$(LIBCOBJ)\runefmtstr.obj\
+	$(LIBCOBJ)\runeseprint.obj\
+	$(LIBCOBJ)\runesmprint.obj\
+	$(LIBCOBJ)\runesnprint.obj\
+	$(LIBCOBJ)\runesprint.obj\
+	$(LIBCOBJ)\runestrchr.obj\
+	$(LIBCOBJ)\runestrlen.obj\
+	$(LIBCOBJ)\runestrstr.obj\
+	$(LIBCOBJ)\runetype.obj\
+	$(LIBCOBJ)\runevseprint.obj\
+	$(LIBCOBJ)\runevsmprint.obj\
+	$(LIBCOBJ)\runevsnprint.obj\
+	$(LIBCOBJ)\seprint.obj\
+	$(LIBCOBJ)\smprint.obj\
+	$(LIBCOBJ)\snprint.obj\
+	$(LIBCOBJ)\sprint.obj\
+	$(LIBCOBJ)\strecpy.obj\
+	$(LIBCOBJ)\strtod.obj\
+	$(LIBCOBJ)\strtoll.obj\
+	$(LIBCOBJ)\sysfatal.obj\
+	$(LIBCOBJ)\time.obj\
+	$(LIBCOBJ)\tokenize.obj\
+	$(LIBCOBJ)\truerand.obj\
+	$(LIBCOBJ)\u16.obj\
+	$(LIBCOBJ)\u32.obj\
+	$(LIBCOBJ)\u64.obj\
+	$(LIBCOBJ)\utfecpy.obj\
+	$(LIBCOBJ)\utflen.obj\
+	$(LIBCOBJ)\utfnlen.obj\
+	$(LIBCOBJ)\utfrrune.obj\
+	$(LIBCOBJ)\utfrune.obj\
+	$(LIBCOBJ)\utfutf.obj\
+	$(LIBCOBJ)\vfprint.obj\
+	$(LIBCOBJ)\vseprint.obj\
+	$(LIBCOBJ)\vsmprint.obj\
+	$(LIBCOBJ)\vsnprint.obj
+
+LIBIP_OBJS=\
+	$(LIBIPOBJ)\eipfmt.obj\
+	$(LIBIPOBJ)\parseip.obj\
+	$(LIBIPOBJ)\classmask.obj\
+	$(LIBIPOBJ)\bo.obj\
+	$(LIBIPOBJ)\ipaux.obj
+
+MACH_OBJS=\
+	$(MACHOBJ)\getcallerpc.obj\
+	$(MACHOBJ)\tas.obj
+
+RES=$(BUILD)\glenda-t.res
+
+all: dirs $(TARG)
+
+dirs:
+	@if not exist "$(BUILD)" mkdir "$(BUILD)"
+	@if not exist "$(ROOTOBJ)" mkdir "$(ROOTOBJ)"
+	@if not exist "$(KERNOBJ)" mkdir "$(KERNOBJ)"
+	@if not exist "$(EXPORTFSOBJ)" mkdir "$(EXPORTFSOBJ)"
+	@if not exist "$(LIBAUTHOBJ)" mkdir "$(LIBAUTHOBJ)"
+	@if not exist "$(LIBAUTHSRVOBJ)" mkdir "$(LIBAUTHSRVOBJ)"
+	@if not exist "$(LIBSECOBJ)" mkdir "$(LIBSECOBJ)"
+	@if not exist "$(LIBMPOBJ)" mkdir "$(LIBMPOBJ)"
+	@if not exist "$(LIBMEMDRAWOBJ)" mkdir "$(LIBMEMDRAWOBJ)"
+	@if not exist "$(LIBMEMLAYEROBJ)" mkdir "$(LIBMEMLAYEROBJ)"
+	@if not exist "$(LIBDRAWOBJ)" mkdir "$(LIBDRAWOBJ)"
+	@if not exist "$(GUIOBJ)" mkdir "$(GUIOBJ)"
+	@if not exist "$(LIBCOBJ)" mkdir "$(LIBCOBJ)"
+	@if not exist "$(LIBIPOBJ)" mkdir "$(LIBIPOBJ)"
+	@if not exist "$(MACHOBJ)" mkdir "$(MACHOBJ)"
+
+$(TARG): dirs $(ROOT_OBJS) $(LIBS) $(RES)
+	$(LINK) $(LINKFLAGS) $(ROOT_OBJS) $(LIBS) $(LIBS) $(RES) $(SYSLIBS)
+
+$(KERN_LIB): dirs $(KERN_OBJS)
+	$(LIBTOOL) /nologo /OUT:$@ $(KERN_OBJS)
+
+$(EXPORTFS_LIB): dirs $(EXPORTFS_OBJS)
+	$(LIBTOOL) /nologo /OUT:$@ $(EXPORTFS_OBJS)
+
+$(LIBAUTH_LIB): dirs $(LIBAUTH_OBJS)
+	$(LIBTOOL) /nologo /OUT:$@ $(LIBAUTH_OBJS)
+
+$(LIBAUTHSRV_LIB): dirs $(LIBAUTHSRV_OBJS)
+	$(LIBTOOL) /nologo /OUT:$@ $(LIBAUTHSRV_OBJS)
+
+$(LIBSEC_LIB): dirs $(LIBSEC_OBJS)
+	$(LIBTOOL) /nologo /OUT:$@ $(LIBSEC_OBJS)
+
+$(LIBMP_LIB): dirs $(LIBMP_OBJS)
+	$(LIBTOOL) /nologo /OUT:$@ $(LIBMP_OBJS)
+
+$(LIBMEMDRAW_LIB): dirs $(LIBMEMDRAW_OBJS)
+	$(LIBTOOL) /nologo /OUT:$@ $(LIBMEMDRAW_OBJS)
+
+$(LIBMEMLAYER_LIB): dirs $(LIBMEMLAYER_OBJS)
+	$(LIBTOOL) /nologo /OUT:$@ $(LIBMEMLAYER_OBJS)
+
+$(LIBDRAW_LIB): dirs $(LIBDRAW_OBJS)
+	$(LIBTOOL) /nologo /OUT:$@ $(LIBDRAW_OBJS)
+
+$(GUI_LIB): dirs $(GUI_OBJS)
+	$(LIBTOOL) /nologo /OUT:$@ $(GUI_OBJS)
+
+$(LIBC_LIB): dirs $(LIBC_OBJS)
+	$(LIBTOOL) /nologo /OUT:$@ $(LIBC_OBJS)
+
+$(LIBIP_LIB): dirs $(LIBIP_OBJS)
+	$(LIBTOOL) /nologo /OUT:$@ $(LIBIP_OBJS)
+
+$(MACH_LIB): dirs $(MACH_OBJS)
+	$(LIBTOOL) /nologo /OUT:$@ $(MACH_OBJS)
+
+$(RES): glenda-t.rc glenda-t.ico
+	$(RC) /nologo /fo$@ glenda-t.rc
+
+{.}.c{$(ROOTOBJ)}.obj:
+	$(CC) $(CFLAGS) /Fo$@ $<
+
+{kern}.c{$(KERNOBJ)}.obj:
+	$(CC) $(CFLAGS) /Fo$@ $<
+
+{exportfs}.c{$(EXPORTFSOBJ)}.obj:
+	$(CC) $(CFLAGS) /Fo$@ $<
+
+{libauth}.c{$(LIBAUTHOBJ)}.obj:
+	$(CC) $(CFLAGS) /Fo$@ $<
+
+{libauthsrv}.c{$(LIBAUTHSRVOBJ)}.obj:
+	$(CC) $(CFLAGS) /Fo$@ $<
+
+{libsec}.c{$(LIBSECOBJ)}.obj:
+	$(CC) $(CFLAGS) /Fo$@ $<
+
+{libmp}.c{$(LIBMPOBJ)}.obj:
+	$(CC) $(CFLAGS) /Fo$@ $<
+
+{libmemdraw}.c{$(LIBMEMDRAWOBJ)}.obj:
+	$(CC) $(CFLAGS) /Fo$@ $<
+
+{libmemlayer}.c{$(LIBMEMLAYEROBJ)}.obj:
+	$(CC) $(CFLAGS) /Fo$@ $<
+
+{libdraw}.c{$(LIBDRAWOBJ)}.obj:
+	$(CC) $(CFLAGS) /Fo$@ $<
+
+{gui-win32}.c{$(GUIOBJ)}.obj:
+	$(CC) $(CFLAGS) /Fo$@ $<
+
+{libc}.c{$(LIBCOBJ)}.obj:
+	$(CC) $(CFLAGS) /Fo$@ $<
+
+{libip}.c{$(LIBIPOBJ)}.obj:
+	$(CC) $(CFLAGS) /Fo$@ $<
+
+{posix-port}.c{$(MACHOBJ)}.obj:
+	$(CC) $(CFLAGS) /Fo$@ $<
+
+clean:
+	@if exist "$(BUILD)" rmdir /s /q "$(BUILD)"

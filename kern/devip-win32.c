@@ -81,6 +81,11 @@ so_socket(int type, unsigned char *addr)
 	return fd;
 }
 
+void
+so_close(int fd)
+{
+	closesocket(fd);
+}
 
 void
 so_connect(int fd, unsigned char *raddr, unsigned short rport)

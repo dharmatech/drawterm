@@ -329,29 +329,40 @@ togglefull(HWND hwnd)
 	}
 }
 
-Rune vk2rune[256] = {
-[VK_CANCEL] Kbreak,
-[VK_CAPITAL] Kcaps,
-[VK_CONTROL] Kctl,
-[VK_DELETE] Kdel,
-[VK_DOWN] Kdown,
-[VK_END] Kend,
-[VK_F1] KF|1,KF|2,KF|3,KF|4,KF|5,KF|6,KF|7,KF|8,KF|9,KF|10,KF|11,KF|12,
-[VK_HOME] Khome,
-[VK_INSERT] Kins,
-[VK_LEFT] Kleft,
-[VK_MENU] Kalt,
-[VK_NEXT] Kpgdown,
-[VK_NUMLOCK] Knum,
-[VK_PRINT] Kprint,
-[VK_PRIOR] Kpgup,
-[VK_RIGHT] Kright,
-[VK_RMENU] Kaltgr,
-[VK_SCROLL] Kscroll,
-[VK_SHIFT] Kshift,
-[VK_UP] Kup,
-};
-		
+Rune vk2rune[256];
+
+static void
+initvk2rune(void)
+{
+	static int init;
+	int i;
+
+	if(init)
+		return;
+	vk2rune[VK_CANCEL] = Kbreak;
+	vk2rune[VK_CAPITAL] = Kcaps;
+	vk2rune[VK_CONTROL] = Kctl;
+	vk2rune[VK_DELETE] = Kdel;
+	vk2rune[VK_DOWN] = Kdown;
+	vk2rune[VK_END] = Kend;
+	for(i = 0; i < 12; i++)
+		vk2rune[VK_F1+i] = KF|i+1;
+	vk2rune[VK_HOME] = Khome;
+	vk2rune[VK_INSERT] = Kins;
+	vk2rune[VK_LEFT] = Kleft;
+	vk2rune[VK_MENU] = Kalt;
+	vk2rune[VK_NEXT] = Kpgdown;
+	vk2rune[VK_NUMLOCK] = Knum;
+	vk2rune[VK_PRINT] = Kprint;
+	vk2rune[VK_PRIOR] = Kpgup;
+	vk2rune[VK_RIGHT] = Kright;
+	vk2rune[VK_RMENU] = Kaltgr;
+	vk2rune[VK_SCROLL] = Kscroll;
+	vk2rune[VK_SHIFT] = Kshift;
+	vk2rune[VK_UP] = Kup;
+	init = 1;
+}
+
 
 LRESULT CALLBACK
 WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
@@ -364,6 +375,8 @@ WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 	RECT winr;
 	Rectangle r;
 	Rune k;
+
+	initvk2rune();
 
 	b = 0;
 

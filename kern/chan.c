@@ -1539,9 +1539,19 @@ char isfrog[256]={
 	/*BKS*/	1, 1, 1, 1, 1, 1, 1, 1,
 	/*DLE*/	1, 1, 1, 1, 1, 1, 1, 1,
 	/*CAN*/	1, 1, 1, 1, 1, 1, 1, 1,
-	['/']	1,
-	[0x7f]	1,
 };
+
+static void
+froginit(void)
+{
+	static int init;
+
+	if(init)
+		return;
+	isfrog['/'] = 1;
+	isfrog[0x7f] = 1;
+	init = 1;
+}
 
 /*
  * Check that the name
@@ -1564,6 +1574,8 @@ validname0(char *aname, int slashok, int dup, uintptr pc)
 	char *ename, *name, *s;
 	int c, n;
 	Rune r;
+
+	froginit();
 
 	name = aname;
 	ename = memchr(name, 0, (1<<16));
