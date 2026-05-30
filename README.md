@@ -1,0 +1,22 @@
+# drawterm Windows/MSVC fork
+
+This fork tracks 9front drawterm with a small set of Windows-focused
+improvements.
+
+## Changes from upstream
+
+- Builds on Windows using Microsoft Visual C via `NMakefile.msvc`.
+  - Upstream 9front drawterm's Windows build path uses MinGW/Cygwin.
+- Supports no-GUI command execution from PowerShell or cmd with
+  `-G -c <cmd>`.
+  - Output is written to the invoking console, and the shell waits for
+    drawterm to exit before returning to the prompt.
+
+```powershell
+.\build\msvc\drawterm.exe -h 127.0.0.1 -a 127.0.0.1 -u glenda -G -c 'lc /'
+```
+
+## More information
+
+- Upstream/9front README: [`README`](README)
+- MSVC build notes: [`README.msvc`](README.msvc)
