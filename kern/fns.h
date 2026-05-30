@@ -129,6 +129,8 @@ int		oscmdkill(void*);
 void		oscmdfree(void*);
 void		oserrstr(void);
 void		oserror(void);
+long		osconsread(void*, long);
+long		osconswrite(int, void*, long);
 void		oslog(char*, int);
 void		osexit(void);
 Block*		packblock(Block*);

@@ -108,6 +108,18 @@ oserror(void)
 	nexterror();
 }
 
+long
+osconsread(void *buf, long n)
+{
+	return read(0, buf, n);
+}
+
+long
+osconswrite(int fd, void *buf, long n)
+{
+	return write(fd, buf, n);
+}
+
 void
 oslog(char *s, int n)
 {

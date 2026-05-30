@@ -11,7 +11,9 @@ LIBTOOL=lib
 RC=rc
 
 CFLAGS=/nologo /c /utf-8 /std:c17 /W3 /O2 /MT /DWIN32_LEAN_AND_MEAN /DNOMINMAX /DWINDOWS /DUNICODE /DMSVC /D_CRT_SECURE_NO_WARNINGS /D_CRT_SECURE_NO_DEPRECATE /D_CRT_NONSTDC_NO_WARNINGS /D_CRT_NONSTDC_NO_DEPRECATE /D_WINSOCK_DEPRECATED_NO_WARNINGS /Iinclude /I. /Ikern
-LINKFLAGS=/nologo /SUBSYSTEM:WINDOWS /OUT:$(TARG)
+# Console subsystem makes PowerShell/cmd wait for -G command sessions; keep
+# WinMainCRTStartup so kern\win32.c still owns UTF-16 command-line parsing.
+LINKFLAGS=/nologo /SUBSYSTEM:CONSOLE /ENTRY:WinMainCRTStartup /OUT:$(TARG)
 SYSLIBS=kernel32.lib user32.lib gdi32.lib advapi32.lib shell32.lib ws2_32.lib winmm.lib mpr.lib
 
 ROOTOBJ=$(BUILD)\root

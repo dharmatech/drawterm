@@ -54,6 +54,87 @@ oslog(char *s, int n)
 	LeaveCriticalSection(&loglock);
 }
 
+static DWORD
+stdid(int fd)
+{
+	switch(fd){
+	case 0:
+		return STD_INPUT_HANDLE;
+	case 1:
+		return STD_OUTPUT_HANDLE;
+	case 2:
+		return STD_ERROR_HANDLE;
+	}
+	return STD_ERROR_HANDLE;
+}
+
+static int
+validhandle(HANDLE h)
+{
+	return h != NULL && h != INVALID_HANDLE_VALUE;
+}
+
+static void
+ensureconsole(DWORD id)
+{
+	static int tried;
+	HANDLE h;
+
+	h = GetStdHandle(id);
+	if(validhandle(h))
+		return;
+
+	if(tried)
+		return;
+	tried = 1;
+
+	/* GUI-subsystem processes do not always inherit console handles. */
+	if(!AttachConsole(ATTACH_PARENT_PROCESS))
+		return;
+
+	h = CreateFileW(L"CONIN$", GENERIC_READ|GENERIC_WRITE,
+		FILE_SHARE_READ|FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL);
+	if(validhandle(h))
+		SetStdHandle(STD_INPUT_HANDLE, h);
+
+	h = CreateFileW(L"CONOUT$", GENERIC_READ|GENERIC_WRITE,
+		FILE_SHARE_READ|FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL);
+	if(validhandle(h)){
+		SetStdHandle(STD_OUTPUT_HANDLE, h);
+		SetStdHandle(STD_ERROR_HANDLE, h);
+	}
+}
+
+long
+osconsread(void *buf, long n)
+{
+	DWORD r;
+	HANDLE h;
+
+	ensureconsole(STD_INPUT_HANDLE);
+	h = GetStdHandle(STD_INPUT_HANDLE);
+	if(!validhandle(h))
+		return -1;
+	if(!ReadFile(h, buf, (DWORD)n, &r, NULL))
+		return -1;
+	return r;
+}
+
+long
+osconswrite(int fd, void *buf, long n)
+{
+	DWORD w;
+	HANDLE h;
+
+	ensureconsole(stdid(fd));
+	h = GetStdHandle(stdid(fd));
+	if(!validhandle(h))
+		return -1;
+	if(!WriteFile(h, buf, (DWORD)n, &w, NULL))
+		return -1;
+	return w;
+}
+
 static void
 oslogopen(void)
 {

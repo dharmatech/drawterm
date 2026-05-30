@@ -160,7 +160,7 @@ putstrn0(char *str, int n, int usewrite)
 	}else if(screenputs != 0)
 		screenputs(str, n);
 	else
-		write(1, str, n);
+		osconswrite(1, str, n);
 }
 
 void
@@ -280,7 +280,7 @@ echo(char *buf, int n)
 	if(screenputs != 0)
 		echoscreen(buf, n);
 	else
-		write(1, buf, n);
+		osconswrite(1, buf, n);
 }
 
 static int
@@ -521,7 +521,7 @@ static int
 qreadcons(Queue *q, char *buf, int n)
 {
 	if(screenputs==0 && !qcanread(q))
-		return read(0, buf, n);
+		return osconsread(buf, n);
 	return qread(q, buf, n);
 }
 
@@ -934,7 +934,7 @@ iprint(char *fmt, ...)
 	va_start(arg, fmt);
 	n = vseprint(buf, buf+sizeof(buf), fmt, arg) - buf;
 	va_end(arg);
-	write(2, buf, n);
+	osconswrite(2, buf, n);
 	if(screenputs != 0)
 		screenputs(buf, n);
 	splx(s);
