@@ -29,6 +29,16 @@ CAVEATS
 --------
 Be aware that right now on Android the login details are saved as a plaintext string if saved, and there is no secstore support.
 
+When importing code from 9front it's possible that it will contain Unicode characters not supported by older compilers. To ensure compatibility with those platforms, cleanup the code before committing with the following script (extend if necessary):
+
+sed -Ei 's/Δ/d/g
+s/ε/EPSILON/g
+s/Σ/sum/g
+s/₀/_0/g
+s/₁/_1/g
+s/₂/_2/g
+s/₃/_3/g' libdraw/* libmemdraw/*
+
 
 BINARIES
 ---------

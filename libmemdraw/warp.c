@@ -30,7 +30,7 @@ struct Sampler
 	Rectangle r;
 	int bpl;
 	int cmask;
-	long Δx, Δy;
+	long dx, dy;
 	Memimage *k;			/* filtering kernel */
 	Point kcp;			/* kernel center point */
 	ulong (*fn)(Sampler*, Point);
@@ -681,7 +681,7 @@ static ulong
 bilinear(Sampler *s, Point p)
 {
 	ulong c00, c01, c10, c11;
-	uchar c0₀, c0₁, c0₂, c0₃, c1₀, c1₁, c1₂, c1₃;
+	uchar c0_0, c0_1, c0_2, c0_3, c1_0, c1_1, c1_2, c1_3;
 
 	c00 = sample1(s, p);
 	p.x++;
@@ -691,38 +691,38 @@ bilinear(Sampler *s, Point p)
 	p.x++;
 	c11 = sample1(s, p);
 
-	c0₀ = c00>>24;
-	c0₁ = c00>>16;
-	c0₂ = c00>>8;
-	c0₃ = c00;
-	c1₀ = c10>>24;
-	c1₁ = c10>>16;
-	c1₂ = c10>>8;
-	c1₃ = c10;
-	c0₀ = lerp(c0₀, c01>>24 & 0xFF, s->Δx);
-	c0₁ = lerp(c0₁, c01>>16 & 0xFF, s->Δx);
-	c0₂ = lerp(c0₂, c01>>8  & 0xFF, s->Δx);
-	c0₃ = lerp(c0₃, c01     & 0xFF, s->Δx);
-	c1₀ = lerp(c1₀, c11>>24 & 0xFF, s->Δx);
-	c1₁ = lerp(c1₁, c11>>16 & 0xFF, s->Δx);
-	c1₂ = lerp(c1₂, c11>>8  & 0xFF, s->Δx);
-	c1₃ = lerp(c1₃, c11     & 0xFF, s->Δx);
-	return    (lerp(c0₀, c1₀, s->Δy)) << 24
-		| (lerp(c0₁, c1₁, s->Δy)) << 16
-		| (lerp(c0₂, c1₂, s->Δy)) << 8
-		| (lerp(c0₃, c1₃, s->Δy));
+	c0_0 = c00>>24;
+	c0_1 = c00>>16;
+	c0_2 = c00>>8;
+	c0_3 = c00;
+	c1_0 = c10>>24;
+	c1_1 = c10>>16;
+	c1_2 = c10>>8;
+	c1_3 = c10;
+	c0_0 = lerp(c0_0, c01>>24 & 0xFF, s->dx);
+	c0_1 = lerp(c0_1, c01>>16 & 0xFF, s->dx);
+	c0_2 = lerp(c0_2, c01>>8  & 0xFF, s->dx);
+	c0_3 = lerp(c0_3, c01     & 0xFF, s->dx);
+	c1_0 = lerp(c1_0, c11>>24 & 0xFF, s->dx);
+	c1_1 = lerp(c1_1, c11>>16 & 0xFF, s->dx);
+	c1_2 = lerp(c1_2, c11>>8  & 0xFF, s->dx);
+	c1_3 = lerp(c1_3, c11     & 0xFF, s->dx);
+	return    (lerp(c0_0, c1_0, s->dy)) << 24
+		| (lerp(c0_1, c1_1, s->dy)) << 16
+		| (lerp(c0_2, c1_2, s->dy)) << 8
+		| (lerp(c0_3, c1_3, s->dy));
 }
 
 static ulong
 correlate(Sampler *s, Point p)
 {
 	Point sp;
-	int r, g, b, a, Σr, Σg, Σb, Σa;
+	int r, g, b, a, sumr, sumg, sumb, suma;
 	long *kp, kv;
 	ulong v;
 
 	kp = (long*)(s->k->data->bdata + s->k->zero);
-	Σr = Σg = Σb = Σa = 0;
+	sumr = sumg = sumb = suma = 0;
 
 	for(sp.y = 0; sp.y < s->k->r.max.y; sp.y++)
 	for(sp.x = 0; sp.x < s->k->r.max.x; sp.x++){
@@ -738,12 +738,12 @@ correlate(Sampler *s, Point p)
 		b = fixmul(b, kv);
 		a = fixmul(a, kv);
 
-		Σr += r; Σg += g; Σb += b; Σa += a;
+		sumr += r; sumg += g; sumb += b; suma += a;
 	}
-	r = fix2int(Σr); r = clamp(r, 0, 0xFF);
-	g = fix2int(Σg); g = clamp(g, 0, 0xFF);
-	b = fix2int(Σb); b = clamp(b, 0, 0xFF);
-	a = fix2int(Σa); a = clamp(a, 0, 0xFF);
+	r = fix2int(sumr); r = clamp(r, 0, 0xFF);
+	g = fix2int(sumg); g = clamp(g, 0, 0xFF);
+	b = fix2int(sumb); b = clamp(b, 0, 0xFF);
+	a = fix2int(suma); a = clamp(a, 0, 0xFF);
 
 	return r<<24|g<<16|b<<8|a;
 }
@@ -756,7 +756,7 @@ intupscalewarp(Blitter *blit, Rectangle r, Sampler *samp, Point sp0, Warp *m)
 {
 	Point sp, dp, p2, scale;
 	ulong c, bpl;
-	int p2x₀, i;
+	int p2x_0, i;
 	uchar *p;
 
 	bpl = Dx(r)*blit->i->depth >> 3;
@@ -771,7 +771,7 @@ intupscalewarp(Blitter *blit, Rectangle r, Sampler *samp, Point sp0, Warp *m)
 		int2fix(r.min.x - blit->i->r.min.x) + (1<<12),
 		int2fix(r.min.y - blit->i->r.min.y) + (1<<12)
 	}, m);
-	p2x₀ = p2.x;
+	p2x_0 = p2.x;
 
 	for(dp.y = r.min.y; dp.y < r.max.y; ){
 		sp.y = sp0.y + fix2int(p2.y);
@@ -794,7 +794,7 @@ intupscalewarp(Blitter *blit, Rectangle r, Sampler *samp, Point sp0, Warp *m)
 			dp.y++;
 			p2.y += m->m[1][1];
 		}
-		p2.x = p2x₀;
+		p2.x = p2x_0;
 	}
 }
 
@@ -804,7 +804,7 @@ memaffinewarp(Memimage *d, Rectangle r, Memimage *s, Point sp0, Warp *m, int smo
 	ulong (*sample)(Sampler*, Point);
 	Sampler samp;
 	Blitter blit;
-	Point sp, dp, p2, p2₀;
+	Point sp, dp, p2, p2_0;
 	Rectangle dr;
 	ulong c;
 
@@ -833,14 +833,14 @@ memaffinewarp(Memimage *d, Rectangle r, Memimage *s, Point sp0, Warp *m, int smo
 	 * 	Lee, S., Lee, GG., Jang, E.S., Kim, WY,
 	 * 	Intelligent Computing.  ICIC 2006. LNCS, vol 4113.
 	 */
-	p2 = p2₀ = xform((Point){
+	p2 = p2_0 = xform((Point){
 		int2fix(r.min.x - d->r.min.x) + (1<<12),
 		int2fix(r.min.y - d->r.min.y) + (1<<12)
 	}, m);
 	for(dp.y = r.min.y; dp.y < r.max.y; dp.y++){
 	for(dp.x = r.min.x; dp.x < r.max.x; dp.x++){
-		samp.Δx = fixfrac(p2.x);
-		samp.Δy = fixfrac(p2.y);
+		samp.dx = fixfrac(p2.x);
+		samp.dy = fixfrac(p2.y);
 
 		sp.x = sp0.x + fix2int(p2.x);
 		sp.y = sp0.y + fix2int(p2.y);
@@ -851,21 +851,21 @@ memaffinewarp(Memimage *d, Rectangle r, Memimage *s, Point sp0, Warp *m, int smo
 		p2.x += m->m[0][0];
 		p2.y += m->m[1][0];
 	}
-		p2.x = p2₀.x += m->m[0][1];
-		p2.y = p2₀.y += m->m[1][1];
+		p2.x = p2_0.x += m->m[0][1];
+		p2.y = p2_0.y += m->m[1][1];
 	}
 }
 
 static double
 coeffsum(double *m, int len)
 {
-	double *e, Σ;
+	double *e, sum;
 
 	e = m + len;
-	Σ = 0;
+	sum = 0;
 	while(m < e)
-		Σ += *m++;
-	return Σ;
+		sum += *m++;
+	return sum;
 }
 
 Memimage *
