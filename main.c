@@ -51,6 +51,8 @@ main(int argc, char **argv)
 		panic("bind #e: %r");
 	if(bind("#I", "/net", MBEFORE) < 0)
 		panic("bind #I: %r");
+	if(bind("#a", "/net", MAFTER) < 0)
+		panic("bind #a: %r");
 	if(bind("#U", "/root", MREPL) < 0)
 		panic("bind #U: %r");
 	bind("#A", "/dev", MAFTER);

@@ -219,17 +219,14 @@ void	des3ECBdecrypt(uchar*, int, DES3state*);
 
 enum
 {
-	SHA1dlen=	20,	/* SHA digest length */
-	SHA2_224dlen=	28,	/* SHA-224 digest length */
-	SHA2_256dlen=	32,	/* SHA-256 digest length */
-	SHA2_384dlen=	48,	/* SHA-384 digest length */
-	SHA2_512dlen=	64,	/* SHA-512 digest length */
-	MD4dlen=	16,	/* MD4 digest length */
-	MD5dlen=	16,	/* MD5 digest length */
-	RIPEMD160dlen=	20,	/* RIPEMD-160 digest length */
-	Poly1305dlen=	16,	/* Poly1305 digest length */
-
-	Hmacblksz	= 64,	/* in bytes; from rfc2104 */
+	SHA1dlen=		20,	/* SHA digest length */
+	SHA2_224dlen=		28,	/* SHA-224 digest length */
+	SHA2_256dlen=		32,	/* SHA-256 digest length */
+	SHA2_384dlen=		48,	/* SHA-384 digest length */
+	SHA2_512dlen=		64,	/* SHA-512 digest length */
+	MD4dlen=		16,	/* MD4 digest length */
+	MD5dlen=		16,	/* MD5 digest length */
+	Poly1305dlen=		16,	/* Poly1305 digest length */
 };
 
 typedef struct DigestState DigestState;
@@ -256,7 +253,6 @@ typedef struct DigestState MD4state;
 
 DigestState*	md4(uchar*, ulong, uchar*, DigestState*);
 DigestState*	md5(uchar*, ulong, uchar*, DigestState*);
-DigestState*	ripemd160(uchar *, ulong, uchar *, DigestState *);
 DigestState*	sha1(uchar*, ulong, uchar*, DigestState*);
 DigestState*	sha2_224(uchar*, ulong, uchar*, DigestState*);
 DigestState*	sha2_256(uchar*, ulong, uchar*, DigestState*);
@@ -265,14 +261,13 @@ DigestState*	sha2_512(uchar*, ulong, uchar*, DigestState*);
 DigestState*	hmac_x(uchar *p, ulong len, uchar *key, ulong klen,
 			uchar *digest, DigestState *s,
 			DigestState*(*x)(uchar*, ulong, uchar*, DigestState*),
-			int xlen);
+			int xlen, int B);
 DigestState*	hmac_md5(uchar*, ulong, uchar*, ulong, uchar*, DigestState*);
 DigestState*	hmac_sha1(uchar*, ulong, uchar*, ulong, uchar*, DigestState*);
 DigestState*	hmac_sha2_224(uchar*, ulong, uchar*, ulong, uchar*, DigestState*);
 DigestState*	hmac_sha2_256(uchar*, ulong, uchar*, ulong, uchar*, DigestState*);
 DigestState*	hmac_sha2_384(uchar*, ulong, uchar*, ulong, uchar*, DigestState*);
 DigestState*	hmac_sha2_512(uchar*, ulong, uchar*, ulong, uchar*, DigestState*);
-
 DigestState*	poly1305(uchar*, ulong, uchar*, ulong, uchar*, DigestState*);
 
 /*
@@ -359,19 +354,14 @@ RSApriv*	asn1toRSApriv(uchar*, int);
 void		asn1dump(uchar *der, int len);
 uchar*		decodePEM(char *s, char *type, int *len, char **new_s);
 PEMChain*	decodepemchain(char *s, char *type);
-uchar*		X509rsagen(RSApriv *priv, char *subj, ulong valid[2], int *certlen);
-uchar*		X509rsareq(RSApriv *priv, char *subj, int *certlen);
 char*		X509rsaverify(uchar *cert, int ncert, RSApub *pk);
 char*		X509rsaverifydigest(uchar *sig, int siglen, uchar *edigest, int edigestlen, RSApub *pk);
-
-void		X509dump(uchar *cert, int ncert);
 
 mpint*		pkcs1padbuf(uchar *buf, int len, mpint *modulus, int blocktype);
 int		pkcs1unpadbuf(uchar *buf, int len, mpint *modulus, int blocktype);
 int		asn1encodeRSApub(RSApub *pk, uchar *buf, int len);
 int		asn1encodedigest(DigestState* (*fun)(uchar*, ulong, uchar*, DigestState*),
 			uchar *digest, uchar *buf, int len);
-
 
 /*
  * elgamal
@@ -567,6 +557,9 @@ mpint* dh_finish(DHstate *dh, mpint *y);
 
 /* Curve25519 elliptic curve, public key function */
 void curve25519(uchar mypublic[32], uchar secret[32], uchar basepoint[32]);
+
+/* x25519 used in Curve25519 diffie hellman */
+int x25519(uchar out[32], uchar s[32], uchar u[32]);
 
 /* Curve25519 diffie hellman */
 void curve25519_dh_new(uchar x[32], uchar y[32]);
