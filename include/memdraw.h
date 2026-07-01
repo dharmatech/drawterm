@@ -75,6 +75,7 @@ struct	Memsubfont
 	short	n;		/* number of chars in font */
 	uchar	height;		/* height of bitmap */
 	char	ascent;		/* top of bitmap to baseline */
+	Rune	min;		/* rune offset for first glyph in subfont */
 	Fontchar *info;		/* n+1 character descriptors */
 	Memimage	*bits;		/* of font */
 };
@@ -122,6 +123,7 @@ extern int		cloadmemimage(Memimage*, Rectangle, uchar*, int);
 extern int		unloadmemimage(Memimage*, Rectangle, uchar*, int);
 extern ulong*	wordaddr(Memimage*, Point);
 extern uchar*	byteaddr(Memimage*, Point);
+extern int		_drawclipnorepl(Rectangle*, Rectangle*, Rectangle*, Memimage*, Point*, Memimage*, Point*, Rectangle*, Rectangle*);
 extern int		drawclipnorepl(Memimage*, Rectangle*, Memimage*, Point*, Memimage*, Point*, Rectangle*, Rectangle*);
 extern int		drawclip(Memimage*, Rectangle*, Memimage*, Point*, Memimage*, Point*, Rectangle*, Rectangle*);
 extern void	memfillcolor(Memimage*, ulong);
@@ -134,7 +136,7 @@ extern void	memdraw(Memimage*, Rectangle, Memimage*, Point, Memimage*, Point, in
 extern void	memline(Memimage*, Point, Point, int, int, int, Memimage*, Point, int);
 extern void	mempoly(Memimage*, Point*, int, int, int, int, Memimage*, Point, int);
 extern void	memfillpoly(Memimage*, Point*, int, int, Memimage*, Point, int);
-extern void	_memfillpolysc(Memimage*, Point*, int, int, Memimage*, Point, int, int, int, int);
+extern void	_memfillpolysc(Memimage*, Point*, int, int, Memimage*, Point, int, int, int);
 extern void	memimagedraw(Memimage*, Rectangle, Memimage*, Point, Memimage*, Point, int);
 extern int	hwdraw(Memdrawparam*);
 extern void	memimageline(Memimage*, Point, Point, int, int, int, Memimage*, Point, int);
@@ -155,7 +157,7 @@ extern int	memimageinit(void);
  * Subfont management
  */
 extern Memsubfont*	allocmemsubfont(char*, int, int, int, Fontchar*, Memimage*);
-extern Memsubfont*	openmemsubfont(char*);
+extern Memsubfont*	openmemsubfont(char*, Rune);
 extern void	freememsubfont(Memsubfont*);
 extern Point	memsubfontwidth(Memsubfont*, char*);
 extern Memsubfont*	getmemdefont(void);
