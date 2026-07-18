@@ -399,7 +399,7 @@ cpubody(void)
 
 	if(mountfactotum() < 0){
 		if(secstore == nil)
-			secstore = authserver;
+			secstore = "$auth";
 	 	if(havesecstore(secstore, user)){
 			s = secstorefetch(secstore, user, pass);
 			if(s){
