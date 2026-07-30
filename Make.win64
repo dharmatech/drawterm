@@ -17,7 +17,9 @@ FS=fs-win32
 IP=win32
 OS=win32
 GUI=win32
-LDADD=-lgdi32 -lws2_32 -lwinmm -mwindows
+# Use a console subsystem so -G -c participates in shell I/O and waiting.
+# Keep WinMainCRTStartup so WinMain continues to receive UTF-16 arguments.
+LDADD=-lgdi32 -lws2_32 -lwinmm -Wl,--subsystem,console -Wl,--entry,WinMainCRTStartup
 TARG=drawterm.exe
 XOFILES=glenda-t.$O
 

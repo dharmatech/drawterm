@@ -192,7 +192,7 @@ winproc(void *a)
 	if(window == nil)
 		panic("can't make window\n");
 
-	ShowWindow(window, SW_SHOWDEFAULT);
+	ShowWindow(window, SW_SHOWNORMAL);
 	UpdateWindow(window);
 
 	terminit();
@@ -698,5 +698,6 @@ clipwrite(char *buf)
 void
 guimain(void)
 {
+	screeninit();
 	cpubody();
 }

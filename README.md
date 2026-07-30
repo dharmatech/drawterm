@@ -7,6 +7,9 @@ improvements.
 
 - Builds on Windows using Microsoft Visual C via `NMakefile.msvc`.
   - Upstream 9front drawterm's Windows build path uses MinGW/Cygwin.
+- Supports and documents building native Windows binaries from Ubuntu under
+  WSL using MinGW-w64.
+  - Upstream documents its MinGW build using Cygwin.
 - Supports no-GUI command execution from PowerShell or cmd with
   `-G -c <cmd>`.
   - Output is written to the invoking console, and the shell waits for
@@ -19,4 +22,5 @@ improvements.
 ## More information
 
 - Upstream/9front README: [`README`](README)
+- WSL/MinGW-w64 build notes: [`README.mingw-wsl.md`](README.mingw-wsl.md)
 - MSVC build notes: [`README.msvc`](README.msvc)
