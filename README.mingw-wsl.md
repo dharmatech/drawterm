@@ -20,6 +20,59 @@ Other Linux distributions may provide the same tools under different package
 names, but they have not been tested as part of this workflow. The required
 compiler and related programs use the `x86_64-w64-mingw32-` prefix.
 
+## Automated Windows build and install
+
+From a PowerShell prompt in a Windows checkout of this repository, run:
+
+```powershell
+.\install-windows-wsl.ps1 -AddToPath
+```
+
+The installer:
+
+1. checks the Windows checkout and Ubuntu build prerequisites;
+2. clones the exact committed `HEAD` through `/mnt/c` into a temporary
+   WSL-native build tree, without making a second network clone;
+3. performs a clean MinGW-w64 build and validates the resulting Windows PE
+   executable and its DLL imports;
+4. saves a canonical build artifact as
+   `build\mingw-wsl\drawterm.exe`;
+5. installs it for the current Windows user as
+   `%LOCALAPPDATA%\Programs\Drawterm\drawterm.exe`; and
+6. adds that install directory to the user PATH when `-AddToPath` is present.
+
+The script does not require elevation and does not install Ubuntu packages.
+If a prerequisite is missing, it reports the tested `apt` command to run.
+Tracked changes must be committed before building because the temporary clone
+uses the selected commit rather than the Windows working tree.
+
+The default WSL distribution is used unless one is named explicitly:
+
+```powershell
+.\install-windows-wsl.ps1 -Distribution Ubuntu -AddToPath
+```
+
+Use `-InstallDirectory <path>` to choose another per-user destination. Use
+`-KeepBuildTree` to retain the temporary WSL checkout for inspection; failed
+builds are also retained and their locations are printed. Re-running the
+installer safely replaces the existing executable and does not duplicate the
+PATH entry.
+
+Open a new Windows Terminal session after the first PATH update. You can then
+invoke `drawterm` by name:
+
+```powershell
+$env:PASS = 'your-password'
+drawterm -h cpu.example -a auth.example -u glenda -G -c 'lc /'
+```
+
+Omit `-G` for Drawterm's graphical interface.
+
+## Manual build
+
+The following workflow exposes each build and copy step for users who do not
+want to use the Windows installer.
+
 ## Clone into the WSL filesystem
 
 Keep the build tree in WSL's native Linux filesystem rather than below
@@ -77,19 +130,21 @@ runtime DLL needs to accompany `drawterm.exe`.
 
 ## Copy the result to Windows
 
-Copy the executable to a destination on the Windows filesystem. For example:
+Copy the executable to a destination on the Windows filesystem. The automated
+installer uses the following per-user location:
 
 ```sh
-mkdir -p /mnt/c/Users/your-name/bin/drawterm
-cp drawterm.exe /mnt/c/Users/your-name/bin/drawterm/
+mkdir -p /mnt/c/Users/your-name/AppData/Local/Programs/Drawterm
+cp drawterm.exe /mnt/c/Users/your-name/AppData/Local/Programs/Drawterm/
 ```
 
-Then invoke that copy from Windows. A text-only command from PowerShell looks
-like:
+Add that directory to the Windows user PATH, or invoke the copied file by its
+full path. A text-only command from PowerShell looks like:
 
 ```powershell
 $env:PASS = 'your-password'
-.\drawterm.exe -h cpu.example -a auth.example -u glenda -G -c 'lc /'
+& "$env:LOCALAPPDATA\Programs\Drawterm\drawterm.exe" `
+    -h cpu.example -a auth.example -u glenda -G -c 'lc /'
 ```
 
 Omit `-G` for Drawterm's graphical interface.
@@ -107,7 +162,3 @@ x86_64-w64-mingw32-objdump --version
 
 Use `CONF=win64` for both the build and clean targets. Running plain
 `make clean` does not select a platform configuration.
-
-This is intentionally a manual workflow. It keeps the compiler invocation and
-artifact location visible; an automated prerequisite or build wrapper can be
-added later if repeated use justifies it.
