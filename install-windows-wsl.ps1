@@ -444,10 +444,10 @@ Write-Host "SHA-256: $artifactHash"
 if($AddToPath){
 	if($pathChanged){
 		Write-Host "Added to the user PATH: $InstallDirectory"
+		Write-Host "Open a new Windows Terminal session before invoking drawterm by name."
 	} else {
 		Write-Host "Already on the user PATH: $InstallDirectory"
 	}
-	Write-Host "Open a new Windows Terminal session before invoking drawterm by name."
 } else {
 	Write-Host "PATH was not changed. Re-run with -AddToPath to add the installation directory."
 }

@@ -22,6 +22,6 @@ improvements.
 ## More information
 
 - Upstream/9front README: [`README`](README)
-- Automated Windows installer and manual WSL/MinGW-w64 build notes:
+- Automated Windows install/update and manual WSL/MinGW-w64 build notes:
   [`README.mingw-wsl.md`](README.mingw-wsl.md)
 - MSVC build notes: [`README.msvc`](README.msvc)

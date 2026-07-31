@@ -68,12 +68,38 @@ drawterm -h cpu.example -a auth.example -u glenda -G -c 'lc /'
 
 Omit `-G` for Drawterm's graphical interface.
 
+### Update an automated Windows installation
+
+Close any running Drawterm sessions. Then, from a PowerShell prompt in the
+existing Windows checkout, update the intended branch and run the same
+installer used for the initial installation:
+
+```powershell
+git switch main
+git status
+git pull --ff-only
+.\install-windows-wsl.ps1 -AddToPath
+```
+
+Stop before pulling if `git status` reports tracked changes that you do not
+want to discard or commit. The installer builds the exact committed `HEAD` and
+refuses tracked staged or unstaged changes. If you intentionally install from
+another branch, switch to that branch instead of `main`.
+
+`git pull --ff-only` refuses to create an unexpected merge when the local and
+remote branches have diverged. After a successful pull, the installer performs
+a clean build and replaces the installed executable only after the new result
+passes validation. A build or validation failure leaves the existing
+installation intact. Repeating `-AddToPath` does not duplicate the PATH entry,
+and an ordinary update does not require a new terminal when that entry was
+already configured.
+
 ## Manual build
 
 The following workflow exposes each build and copy step for users who do not
 want to use the Windows installer.
 
-## Clone into the WSL filesystem
+### Clone into the WSL filesystem
 
 Keep the build tree in WSL's native Linux filesystem rather than below
 `/mnt/c`. The build writes object files and libraries throughout the source
@@ -88,7 +114,26 @@ cd ~/src/drawterm
 A Windows checkout may be kept separately. Synchronize the two working trees
 through Git rather than manually mirroring source files.
 
-## Build
+### Update an existing manual WSL checkout
+
+For a later update, close any running Drawterm sessions and update the WSL
+checkout that you build from:
+
+```sh
+cd ~/src/drawterm
+git switch main
+git status
+git pull --ff-only
+make CONF=win64 clean
+make CONF=win64
+```
+
+As with the automated workflow, stop before pulling if `git status` shows
+tracked changes that need attention. Inspect the new executable and copy it to
+Windows only after the build succeeds. The existing Windows PATH entry does
+not need to be added again.
+
+### Build
 
 Run:
 
@@ -109,7 +154,7 @@ make CONF=win64 clean
 make CONF=win64
 ```
 
-## Inspect the executable
+### Inspect the executable
 
 These commands confirm that the result is a 64-bit Windows PE executable and
 show its subsystem and DLL imports:
@@ -128,7 +173,7 @@ wait for `-G -c` sessions and supports ordinary redirection and pipelines.
 The standard build has only Windows system DLL imports. No MinGW or Cygwin
 runtime DLL needs to accompany `drawterm.exe`.
 
-## Copy the result to Windows
+### Copy the result to Windows
 
 Copy the executable to a destination on the Windows filesystem. The automated
 installer uses the following per-user location:
