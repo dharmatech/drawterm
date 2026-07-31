@@ -15,8 +15,10 @@ improvements.
   - Output is written to the invoking console, and the shell waits for
     drawterm to exit before returning to the prompt.
 
+After installation:
+
 ```powershell
-.\build\msvc\drawterm.exe -h 127.0.0.1 -a 127.0.0.1 -u glenda -G -c 'lc /'
+drawterm -h cpu.example -a auth.example -u glenda -G -c 'lc /'
 ```
 
 ## More information
