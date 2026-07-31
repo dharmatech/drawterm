@@ -19,7 +19,7 @@ OS=win32
 GUI=win32
 LDADD=-lkernel32 -ladvapi32 -lgdi32 -lmpr -lwsock32 -lws2_32 -lmsvcrt -lmingw32 -lwinmm
 TARG=drawterm.exe
-XOFILES=glenda-t.$O
+XOFILES=drawterm.$O
 
 # Windows via MSVC
 #AR=???
@@ -33,6 +33,5 @@ XOFILES=glenda-t.$O
 
 all: default
 
-glenda-t.$O: glenda-t.rc glenda-t.ico
-	$(WINDRES) -i glenda-t.rc -o glenda-t.o
-
+drawterm.$O: drawterm.rc drawterm.ico
+	$(WINDRES) -i drawterm.rc -o drawterm.o

@@ -369,7 +369,7 @@ MACH_OBJS=\
 	$(MACHOBJ)\getcallerpc.obj\
 	$(MACHOBJ)\tas.obj
 
-RES=$(BUILD)\glenda-t.res
+RES=$(BUILD)\drawterm.res
 
 all: dirs $(TARG)
 
@@ -432,8 +432,8 @@ $(LIBIP_LIB): dirs $(LIBIP_OBJS)
 $(MACH_LIB): dirs $(MACH_OBJS)
 	$(LIBTOOL) /nologo /OUT:$@ $(MACH_OBJS)
 
-$(RES): glenda-t.rc glenda-t.ico
-	$(RC) /nologo /fo$@ glenda-t.rc
+$(RES): drawterm.rc drawterm.ico
+	$(RC) /nologo /fo$@ drawterm.rc
 
 {.}.c{$(ROOTOBJ)}.obj:
 	$(CC) $(CFLAGS) /Fo$@ $<

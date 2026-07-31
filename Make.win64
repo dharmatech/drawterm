@@ -21,9 +21,9 @@ GUI=win32
 # Keep WinMainCRTStartup so WinMain continues to receive UTF-16 arguments.
 LDADD=-lgdi32 -lws2_32 -lwinmm -Wl,--subsystem,console -Wl,--entry,WinMainCRTStartup
 TARG=drawterm.exe
-XOFILES=glenda-t.$O
+XOFILES=drawterm.$O
 
 all: default
 
-glenda-t.$O: glenda-t.rc glenda-t.ico
-	$(WINDRES) -i glenda-t.rc -o glenda-t.o
+drawterm.$O: drawterm.rc drawterm.ico
+	$(WINDRES) -i drawterm.rc -o drawterm.o
