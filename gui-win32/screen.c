@@ -389,8 +389,8 @@ WindowProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 		break;
 
 	case WM_SETCURSOR:
-		/* User set */
-		if(hcursor != NULL) {
+		/* Use the Plan 9 cursor only in the client area. */
+		if(LOWORD(lparam) == HTCLIENT && hcursor != NULL) {
 			SetCursor(hcursor);
 			return 1;
 		}
@@ -545,7 +545,7 @@ setcursor(void)
 	free(and);
 	free(xor);
 
-	PostMessage(window, WM_SETCURSOR, (WPARAM)window, 0);
+	PostMessage(window, WM_SETCURSOR, (WPARAM)window, MAKELPARAM(HTCLIENT, 0));
 }
 
 void
@@ -556,7 +556,7 @@ cursorarrow(void)
 		hcursor = 0;
 	}
 	SetCursor(LoadCursor(0, IDC_ARROW));
-	PostMessage(window, WM_SETCURSOR, (WPARAM)window, 0);
+	PostMessage(window, WM_SETCURSOR, (WPARAM)window, MAKELPARAM(HTCLIENT, 0));
 }
 
 
