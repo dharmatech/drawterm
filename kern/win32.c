@@ -618,17 +618,36 @@ showfilewrite(char *a, int n)
 void
 setterm(int raw)
 {
+	static DWORD savedmode;
+	static int modesaved;
 	DWORD mode;
 	HANDLE h;
 
 	h = GetStdHandle(STD_INPUT_HANDLE);
 	if(!GetConsoleMode(h, &mode))
 		return;
-	if(raw)
+	if(raw){
+		if(!modesaved){
+			savedmode = mode;
+			modesaved = 1;
+		}
 		mode &= ~(ENABLE_LINE_INPUT | ENABLE_ECHO_INPUT);
-	else
+		/*
+		 * In no-GUI mode, /dev/cons reads the Windows console with
+		 * ReadFile.  VT input makes that byte stream match a terminal:
+		 * Alt-x arrives as ESC x, and navigation keys use VT sequences.
+		 */
+		mode |= ENABLE_VIRTUAL_TERMINAL_INPUT;
+	}else if(modesaved){
+		mode = savedmode;
+		modesaved = 0;
+	}else
 		mode |= (ENABLE_LINE_INPUT | ENABLE_ECHO_INPUT);
-	SetConsoleMode(h, mode);
+	if(!SetConsoleMode(h, mode) && raw){
+		/* Older consoles may reject VT input; retain legacy raw mode. */
+		mode &= ~ENABLE_VIRTUAL_TERMINAL_INPUT;
+		SetConsoleMode(h, mode);
+	}
 	FlushConsoleInputBuffer(h);
 	_setmode(0, raw? _O_BINARY: _O_TEXT);
 }
