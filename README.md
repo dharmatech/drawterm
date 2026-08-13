@@ -14,6 +14,8 @@ improvements.
   `-G -c <cmd>`.
   - Output is written to the invoking console, and the shell waits for
     drawterm to exit before returning to the prompt.
+  - Programs that request raw console mode receive Windows virtual-terminal
+    input, including Alt chords encoded as an Escape-prefixed key.
 
 After installation:
 
