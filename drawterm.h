@@ -9,3 +9,6 @@ extern void cpumain(int, char**);
 extern char *estrdup(char*);
 extern void dttrace(char*, ...);
 extern int aanclient(char*, int);
+#ifdef WINDOWS
+extern void osstartresizewatch(void);
+#endif

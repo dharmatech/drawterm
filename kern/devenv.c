@@ -15,6 +15,24 @@ static void	initunix();
 
 static Egrp	unixegrp;	/* unix environment group */
 
+/*
+ * Set a value in the environment exported through #e.  This is the same
+ * kernel-facing interface Plan 9 uses for values that change at runtime.
+ * Drawterm has no separate configuration environment, so conf is ignored.
+ */
+void
+ksetenv(char *name, char *value, int conf)
+{
+	Chan *c;
+	char path[2*KNAMELEN];
+
+	USED(conf);
+	snprint(path, sizeof path, "#e/%s", name);
+	c = namec(path, Acreate, OWRITE, 0666);
+	devtab[c->type]->write(c, value, strlen(value), 0);
+	cclose(c);
+}
+
 static Evalue*
 envlookup(Egrp *eg, char *name, ulong qidpath)
 {

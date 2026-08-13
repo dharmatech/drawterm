@@ -15,6 +15,10 @@ static int tlsx = TLS_OUT_OF_INDEXES;
 static HANDLE logh = INVALID_HANDLE_VALUE;
 static CRITICAL_SECTION loglock;
 static int logready;
+static HANDLE resizeout = INVALID_HANDLE_VALUE;
+static int resizecols;
+static int resizerows;
+static ulong resizegen;
 
 Proc*
 _getproc(void)
@@ -133,6 +137,78 @@ osconswrite(int fd, void *buf, long n)
 	if(!WriteFile(h, buf, (DWORD)n, &w, NULL))
 		return -1;
 	return w;
+}
+
+static int
+consolewindowsize(int *cols, int *rows)
+{
+	CONSOLE_SCREEN_BUFFER_INFO info;
+	int c, r;
+
+	if(!validhandle(resizeout) || !GetConsoleScreenBufferInfo(resizeout, &info))
+		return 0;
+	c = info.srWindow.Right - info.srWindow.Left + 1;
+	r = info.srWindow.Bottom - info.srWindow.Top + 1;
+	if(c <= 0 || r <= 0)
+		return 0;
+	*cols = c;
+	*rows = r;
+	return 1;
+}
+
+static void
+setenvint(char *name, ulong value)
+{
+	char buf[32];
+
+	snprint(buf, sizeof buf, "%lud", value);
+	ksetenv(name, buf, 0);
+}
+
+static void
+publishwindowsize(int cols, int rows)
+{
+	/* WINCH is written last: it announces that the dimensions are ready. */
+	setenvint("COLS", cols);
+	setenvint("LINES", rows);
+	setenvint("WINCH", ++resizegen);
+	resizecols = cols;
+	resizerows = rows;
+}
+
+static void
+resizewatch(void *arg)
+{
+	int cols, rows;
+
+	USED(arg);
+	for(;;){
+		osmsleep(100);
+		if(consolewindowsize(&cols, &rows)
+		&& (cols != resizecols || rows != resizerows))
+			publishwindowsize(cols, rows);
+	}
+}
+
+void
+osstartresizewatch(void)
+{
+	DWORD mode;
+	HANDLE in;
+	int cols, rows;
+
+	ensureconsole(STD_INPUT_HANDLE);
+	ensureconsole(STD_OUTPUT_HANDLE);
+	in = GetStdHandle(STD_INPUT_HANDLE);
+	resizeout = GetStdHandle(STD_OUTPUT_HANDLE);
+	if(!validhandle(in) || !validhandle(resizeout))
+		return;
+	if(!GetConsoleMode(in, &mode) || !consolewindowsize(&cols, &rows))
+		return;
+
+	/* Publish synchronously so the remote namespace can bind these files. */
+	publishwindowsize(cols, rows);
+	kproc("console resize", resizewatch, nil);
 }
 
 static void

@@ -159,8 +159,16 @@ rcpuexit(void)
 void
 rcpu(char *host, char *cmd)
 {
-	static char script[] = 
+	static char script[] =
 "mount -nc /fd/0 /mnt/term || exit\n"
+#ifdef WINDOWS
+"for(e in COLS LINES WINCH){\n"
+"	if(test -r /mnt/term/env/$e){\n"
+"		cat /mnt/term/env/$e > /env/$e\n"
+"		bind -q /mnt/term/env/$e /env/$e\n"
+"	}\n"
+"}\n"
+#endif
 "bind -q /mnt/term/dev/cons /dev/cons\n"
 "if(test -r /mnt/term/dev/kbd){\n"
 "	</dev/cons >/dev/cons >[2=1] aux/kbdfs -dq -m /mnt/term/dev\n"
@@ -414,8 +422,12 @@ cpumain(int argc, char **argv)
 
 	if(!nogfx)
 		guimain();
-	else
+	else{
+#ifdef WINDOWS
+		osstartresizewatch();
+#endif
 		cpubody();
+	}
 }
 
 void
