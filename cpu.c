@@ -221,10 +221,13 @@ rcpu(char *host, char *cmd)
 #ifdef WINDOWS
 	/*
 	 * Register after rcpuexit: callbacks run in reverse order, and rcpuexit
-	 * calls the native exit routine once it has the remote status.
+	 * calls the native exit routine once it has the remote status.  Configure
+	 * UTF-8 only after the matching restoration callback is in place.
 	 */
-	if(nogfx)
+	if(nogfx){
 		atexit(osrestoreconsole);
+		osstartconsoleoutput();
+	}
 #endif
 
 	/* Begin serving the namespace */
@@ -299,8 +302,10 @@ ncpu(char *host, char *cmd)
 	/* Begin serving the gnot namespace */
 	dttrace("starting exportfs for ncpu session");
 #ifdef WINDOWS
-	if(nogfx)
+	if(nogfx){
 		atexit(osrestoreconsole);
+		osstartconsoleoutput();
+	}
 #endif
 	exportfs(fd, fd);
 }
