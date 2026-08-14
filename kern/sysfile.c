@@ -1591,6 +1591,11 @@ sysgetkproc(void)
 void
 syskprocint(void *p)
 {
-	if(p != nil)
+	if(p != nil){
 		procinterrupt((Proc*)p);
+#ifdef WINDOWS
+		/* Wake a Windows kproc blocked in synchronous host I/O. */
+		osprocinterrupt((Proc*)p);
+#endif
+	}
 }
