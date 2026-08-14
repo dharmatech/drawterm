@@ -19,6 +19,8 @@ static HANDLE resizeout = INVALID_HANDLE_VALUE;
 static int resizecols;
 static int resizerows;
 static ulong resizegen;
+static DWORD savedinputmode;
+static int inputmodesaved;
 static BOOL (WINAPI *pCancelSynchronousIo)(HANDLE);
 
 Proc*
@@ -726,8 +728,6 @@ showfilewrite(char *a, int n)
 void
 setterm(int raw)
 {
-	static DWORD savedmode;
-	static int modesaved;
 	DWORD mode;
 	HANDLE h;
 
@@ -735,9 +735,9 @@ setterm(int raw)
 	if(!GetConsoleMode(h, &mode))
 		return;
 	if(raw){
-		if(!modesaved){
-			savedmode = mode;
-			modesaved = 1;
+		if(!inputmodesaved){
+			savedinputmode = mode;
+			inputmodesaved = 1;
 		}
 		/* Raw terminal input must deliver Ctrl-C as byte 0x03, not a host signal. */
 		mode &= ~(ENABLE_LINE_INPUT | ENABLE_ECHO_INPUT | ENABLE_PROCESSED_INPUT);
@@ -747,9 +747,9 @@ setterm(int raw)
 		 * Alt-x arrives as ESC x, and navigation keys use VT sequences.
 		 */
 		mode |= ENABLE_VIRTUAL_TERMINAL_INPUT;
-	}else if(modesaved){
-		mode = savedmode;
-		modesaved = 0;
+	}else if(inputmodesaved){
+		mode = savedinputmode;
+		inputmodesaved = 0;
 	}else
 		mode |= (ENABLE_LINE_INPUT | ENABLE_ECHO_INPUT);
 	if(!SetConsoleMode(h, mode) && raw){
@@ -766,7 +766,8 @@ osrestoreconsole(void)
 {
 	static int restored;
 
-	if(restored)
+	/* Cooked sessions have no saved console state to restore. */
+	if(restored || !inputmodesaved)
 		return;
 	restored = 1;
 
