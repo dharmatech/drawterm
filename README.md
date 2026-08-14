@@ -16,6 +16,9 @@ improvements.
     drawterm to exit before returning to the prompt.
   - Programs that request raw console mode receive Windows virtual-terminal
     input, including Alt chords encoded as an Escape-prefixed key.
+  - Raw-mode `Ctrl-C` is delivered to the remote program, and console reads
+    can be interrupted during clean shutdown so the invoking shell regains a
+    usable prompt immediately.
 
 After installation:
 

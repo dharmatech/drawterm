@@ -132,6 +132,7 @@ void		oserror(void);
 long		osconsread(void*, long);
 long		osconswrite(int, void*, long);
 void		osstartresizewatch(void);
+void		osprocinterrupt(Proc*);
 void		oslog(char*, int);
 void		osexit(void);
 Block*		packblock(Block*);

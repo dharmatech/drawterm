@@ -11,4 +11,5 @@ extern void dttrace(char*, ...);
 extern int aanclient(char*, int);
 #ifdef WINDOWS
 extern void osstartresizewatch(void);
+extern void osrestoreconsole(void);
 #endif

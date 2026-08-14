@@ -19,6 +19,9 @@ static HANDLE resizeout = INVALID_HANDLE_VALUE;
 static int resizecols;
 static int resizerows;
 static ulong resizegen;
+static DWORD savedinputmode;
+static int inputmodesaved;
+static BOOL (WINAPI *pCancelSynchronousIo)(HANDLE);
 
 Proc*
 _getproc(void)
@@ -244,10 +247,15 @@ void
 osinit(void)
 {
 	Oproc *t;
+	HMODULE mod;
 	static Proc firstprocCTstore;
 
 	oslogopen();
 	SetUnhandledExceptionFilter(crashlog);
+	mod = GetModuleHandleW(L"KERNEL32.DLL");
+	if(mod != NULL)
+		pCancelSynchronousIo = (BOOL (WINAPI *)(HANDLE))GetProcAddress(mod,
+			"CancelSynchronousIo");
 
 	_setproc(&firstprocCTstore);
 	t = (Oproc*)firstprocCTstore.oproc;
@@ -333,6 +341,32 @@ procwakeup(Proc *p)
 
 	op = (Oproc*)p->oproc;
 	ReleaseSemaphore(op->sema, 1, 0);
+}
+
+void
+osprocinterrupt(Proc *p)
+{
+	Oproc *op;
+	HANDLE h;
+
+	if(p == nil)
+		return;
+	op = (Oproc*)p->oproc;
+	if(op == nil || op->tid == 0)
+		return;
+	if(pCancelSynchronousIo == nil)
+		return;
+
+	/*
+	 * procinterrupt wakes Inferno-style sleeps, but a synchronous Windows
+	 * ReadFile is outside that machinery.  A 9P flush must also cancel host
+	 * I/O owned by the exportfs slave so the request can return Rflush.
+	 */
+	h = OpenThread(THREAD_TERMINATE, FALSE, op->tid);
+	if(h == NULL)
+		return;
+	pCancelSynchronousIo(h);
+	CloseHandle(h);
 }
 
 static BOOLEAN (WINAPI *pRtlGenRandom)(PVOID, ULONG);
@@ -694,8 +728,6 @@ showfilewrite(char *a, int n)
 void
 setterm(int raw)
 {
-	static DWORD savedmode;
-	static int modesaved;
 	DWORD mode;
 	HANDLE h;
 
@@ -703,20 +735,21 @@ setterm(int raw)
 	if(!GetConsoleMode(h, &mode))
 		return;
 	if(raw){
-		if(!modesaved){
-			savedmode = mode;
-			modesaved = 1;
+		if(!inputmodesaved){
+			savedinputmode = mode;
+			inputmodesaved = 1;
 		}
-		mode &= ~(ENABLE_LINE_INPUT | ENABLE_ECHO_INPUT);
+		/* Raw terminal input must deliver Ctrl-C as byte 0x03, not a host signal. */
+		mode &= ~(ENABLE_LINE_INPUT | ENABLE_ECHO_INPUT | ENABLE_PROCESSED_INPUT);
 		/*
 		 * In no-GUI mode, /dev/cons reads the Windows console with
 		 * ReadFile.  VT input makes that byte stream match a terminal:
 		 * Alt-x arrives as ESC x, and navigation keys use VT sequences.
 		 */
 		mode |= ENABLE_VIRTUAL_TERMINAL_INPUT;
-	}else if(modesaved){
-		mode = savedmode;
-		modesaved = 0;
+	}else if(inputmodesaved){
+		mode = savedinputmode;
+		inputmodesaved = 0;
 	}else
 		mode |= (ENABLE_LINE_INPUT | ENABLE_ECHO_INPUT);
 	if(!SetConsoleMode(h, mode) && raw){
@@ -726,4 +759,22 @@ setterm(int raw)
 	}
 	FlushConsoleInputBuffer(h);
 	_setmode(0, raw? _O_BINARY: _O_TEXT);
+}
+
+void
+osrestoreconsole(void)
+{
+	static int restored;
+
+	/* Cooked sessions have no saved console state to restore. */
+	if(restored || !inputmodesaved)
+		return;
+	restored = 1;
+
+	/*
+	 * -G shares its terminal with the invoking shell.  Restore the console
+	 * input mode saved by setterm(1); terminal applications remain responsible
+	 * for balancing their own output-mode sequences before they exit.
+	 */
+	setterm(0);
 }

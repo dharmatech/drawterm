@@ -58,6 +58,9 @@ static struct
 	kbd.istage + sizeof(kbd.istage),
 };
 
+/* Serialize console readers without blocking terminal mode changes. */
+static QLock kbdreadlk;
+
 char	*sysname;
 vlong	fasthz = 1000;
 
@@ -528,10 +531,10 @@ qreadcons(Queue *q, char *buf, int n)
 static long
 consread(Chan *c, void *buf, long n, vlong off)
 {
-	char *b;
+	char *b, inch;
 	char tmp[128];		/* must be >= 6*NUMSIZE */
 	char *cbuf = buf;
-	int ch, i, eol;
+	int ch, i, eol, raw;
 	vlong offset = off;
 
 	if(n <= 0)
@@ -541,18 +544,30 @@ consread(Chan *c, void *buf, long n, vlong off)
 		return devdirread(c, buf, n, consdir, nelem(consdir), devgen);
 
 	case Qcons:
-		qlock(&kbd.lk);
+		/*
+		 * A host console read can block indefinitely.  Keep it serialized,
+		 * but do not hold the keyboard state lock while waiting: a concurrent
+		 * /dev/consctl rawoff/close must be able to restore the host terminal.
+		 */
+		qlock(&kbdreadlk);
 		if(waserror()) {
-			qunlock(&kbd.lk);
+			qunlock(&kbdreadlk);
 			nexterror();
 		}
-		if(kbd.raw) {
+		qlock(&kbd.lk);
+		raw = kbd.raw;
+		qunlock(&kbd.lk);
+		if(raw) {
 			if(qcanread(lineq))
 				n = qread(lineq, buf, n);
 			else {
 				/* read as much as possible */
 				do {
 					i = qreadcons(kbdq, cbuf, n);
+					if(i <= 0){
+						n = i;
+						goto ConReady;
+					}
 					cbuf += i;
 					n -= i;
 				} while (n>0 && qcanread(kbdq));
@@ -561,34 +576,53 @@ consread(Chan *c, void *buf, long n, vlong off)
 		} else {
 			while(!qcanread(lineq)) {
 				eol = 1;
-				if(qreadcons(kbdq, &kbd.line[kbd.x], 1) == 1){
-					eol = 0;
-					ch = kbd.line[kbd.x];
-					switch(ch){
-					case '\b':
-						if(kbd.x)
-							kbd.x--;
-						break;
-					case 0x15:
-						kbd.x = 0;
-						break;
-					case '\n':
-						kbd.x++;
-					case 0x04:
-						eol = 1;
-						break;
-					default:
-						kbd.x++;
-					}
+				i = qreadcons(kbdq, &inch, 1);
+				if(i != 1){
+					n = i;
+					goto ConReady;
+				}
+				eol = 0;
+				qlock(&kbd.lk);
+				if(waserror()){
+					qunlock(&kbd.lk);
+					nexterror();
+				}
+				/* rawon may have completed while the host read slept. */
+				if(kbd.raw){
+					poperror();
+					qunlock(&kbd.lk);
+					((char*)buf)[0] = inch;
+					n = 1;
+					goto ConReady;
+				}
+				ch = inch;
+				switch(ch){
+				case '\b':
+					if(kbd.x)
+						kbd.x--;
+					break;
+				case 0x15:
+					kbd.x = 0;
+					break;
+				case '\n':
+					kbd.line[kbd.x++] = ch;
+				case 0x04:
+					eol = 1;
+					break;
+				default:
+					kbd.line[kbd.x++] = ch;
 				}
 				if(kbd.x == sizeof(kbd.line) || eol){
 					qwrite(lineq, kbd.line, kbd.x);
 					kbd.x = 0;
 				}
+				poperror();
+				qunlock(&kbd.lk);
 			}
 			n = qread(lineq, buf, n);
 		}
-		qunlock(&kbd.lk);
+	ConReady:
+		qunlock(&kbdreadlk);
 		poperror();
 		return n;
 

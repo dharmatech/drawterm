@@ -218,6 +218,14 @@ rcpu(char *host, char *cmd)
 	/* /env/rstatus is written by the remote script to communicate exit status */
 	remove("/env/rstatus");
 	atexit(rcpuexit);
+#ifdef WINDOWS
+	/*
+	 * Register after rcpuexit: callbacks run in reverse order, and rcpuexit
+	 * calls the native exit routine once it has the remote status.
+	 */
+	if(nogfx)
+		atexit(osrestoreconsole);
+#endif
 
 	/* Begin serving the namespace */
 	dttrace("starting exportfs for rcpu session");
@@ -290,6 +298,10 @@ ncpu(char *host, char *cmd)
 
 	/* Begin serving the gnot namespace */
 	dttrace("starting exportfs for ncpu session");
+#ifdef WINDOWS
+	if(nogfx)
+		atexit(osrestoreconsole);
+#endif
 	exportfs(fd, fd);
 }
 
