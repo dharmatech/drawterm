@@ -16,6 +16,9 @@ improvements.
     drawterm to exit before returning to the prompt.
   - Programs that request raw console mode receive Windows virtual-terminal
     input, including Alt chords encoded as an Escape-prefixed key.
+  - UTF-8 output is rendered through the attached Windows console without
+    mojibake, and the caller's original console output code page is restored
+    when Drawterm exits.
   - Raw-mode `Ctrl-C` is delivered to the remote program, and console reads
     can be interrupted during clean shutdown so the invoking shell regains a
     usable prompt immediately.

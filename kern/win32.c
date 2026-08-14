@@ -21,6 +21,8 @@ static int resizerows;
 static ulong resizegen;
 static DWORD savedinputmode;
 static int inputmodesaved;
+static UINT savedoutputcp;
+static int outputcpsaved;
 static BOOL (WINAPI *pCancelSynchronousIo)(HANDLE);
 
 Proc*
@@ -212,6 +214,26 @@ osstartresizewatch(void)
 	/* Publish synchronously so the remote namespace can bind these files. */
 	publishwindowsize(cols, rows);
 	kproc("console resize", resizewatch, nil);
+}
+
+void
+osstartconsoleoutput(void)
+{
+	DWORD mode;
+	HANDLE out;
+	UINT cp;
+
+	ensureconsole(STD_OUTPUT_HANDLE);
+	out = GetStdHandle(STD_OUTPUT_HANDLE);
+	if(!validhandle(out) || !GetConsoleMode(out, &mode))
+		return;
+	cp = GetConsoleOutputCP();
+	if(cp == 0 || cp == CP_UTF8)
+		return;
+	if(SetConsoleOutputCP(CP_UTF8)){
+		savedoutputcp = cp;
+		outputcpsaved = 1;
+	}
 }
 
 static void
@@ -766,15 +788,19 @@ osrestoreconsole(void)
 {
 	static int restored;
 
-	/* Cooked sessions have no saved console state to restore. */
-	if(restored || !inputmodesaved)
+	if(restored)
 		return;
 	restored = 1;
 
 	/*
-	 * -G shares its terminal with the invoking shell.  Restore the console
-	 * input mode saved by setterm(1); terminal applications remain responsible
-	 * for balancing their own output-mode sequences before they exit.
+	 * -G shares its terminal with the invoking shell.  Restore both pieces of
+	 * host console state Drawterm may have changed.  Terminal applications
+	 * remain responsible for balancing their own output-mode sequences.
 	 */
-	setterm(0);
+	if(inputmodesaved)
+		setterm(0);
+	if(outputcpsaved){
+		SetConsoleOutputCP(savedoutputcp);
+		outputcpsaved = 0;
+	}
 }
