@@ -62,32 +62,13 @@ wlflush(Wlwin *wl)
 	wl_surface_commit(wl->surface);
 }
 
-void  _screenresize(Rectangle);
-
 void
 wlresize(Wlwin *wl, int x, int y)
 {
 	Rectangle r;
 
-	wl->dx = x;
-	wl->dy = y;
-
-	qlock(&drawlock);
-	wlallocbuffer(wl);
-	r = Rect(0, 0, wl->dx, wl->dy);
-	if(gscreen != nil)
-		freememimage(gscreen);
-	gscreen = allocmemimage(r, XRGB32);
-	gscreen->clipr = ZR;
-	qunlock(&drawlock);
-
+	r = Rect(0, 0, x, y);
 	screenresize(r);
-
-	qlock(&drawlock);
-	wl->dirty = 1;
-	wl->r = r;
-	wlflush(wl);
-	qunlock(&drawlock);
 }
 
 void
@@ -166,6 +147,14 @@ flushmemscreen(Rectangle r)
 void
 screensize(Rectangle r, ulong chan)
 {
+	gwin->dx = Dx(r);
+	gwin->dy = Dy(r);
+
+	wlallocbuffer(gwin);
+	if(gscreen != nil)
+		freememimage(gscreen);
+	gscreen = allocmemimage(r, chan);
+	gscreen->clipr = ZR;
 	flushmemscreen(r);
 }
 
