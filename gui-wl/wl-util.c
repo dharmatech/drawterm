@@ -22,6 +22,15 @@
 #include "wl-inc.h"
 
 static int
+wlscreensize(Wlwin *wl)
+{
+	int scale;
+
+	scale = wl->scale;
+	return wl->dx*scale * wl->dy*scale * 4;
+}
+
+static int
 wlcreateshm(off_t size)
 {
 	char name[] = "/drawterm--XXXXXX";
@@ -45,7 +54,7 @@ wlcreateshm(off_t size)
 void
 wlallocpool(Wlwin *wl)
 {
-	int screensize, cursorsize;
+	int buffersize, screensize, cursorsize;
 	int depth;
 	int fd;
 
@@ -54,6 +63,9 @@ wlallocpool(Wlwin *wl)
 
 	depth = 4;
 	screensize = wl->monx * wl->mony * depth;
+	buffersize = wlscreensize(wl);
+	if(buffersize > screensize)
+		screensize = buffersize;
 	cursorsize = 16 * 16 * depth;
 
 	fd = wlcreateshm(screensize+cursorsize);
@@ -74,11 +86,13 @@ wlallocpool(Wlwin *wl)
 void
 wlallocbuffer(Wlwin *wl)
 {
-	int depth;
+	int depth, dx, dy;
 	int size;
 
 	depth = 4;
-	size = wl->dx * wl->dy * depth;
+	dx = wl->dx * wl->scale;
+	dy = wl->dy * wl->scale;
+	size = wlscreensize(wl);
 	if(wl->pool == nil || size+(16*16*depth) > wl->poolsize)
 		wlallocpool(wl);
 
@@ -89,7 +103,7 @@ wlallocbuffer(Wlwin *wl)
 	if(wl->cursorbuffer != nil)
 		wl_buffer_destroy(wl->cursorbuffer);
 
-	wl->screenbuffer = wl_shm_pool_create_buffer(wl->pool, 0, wl->dx, wl->dy, wl->dx*4, WL_SHM_FORMAT_XRGB8888);
+	wl->screenbuffer = wl_shm_pool_create_buffer(wl->pool, 0, dx, dy, dx*depth, WL_SHM_FORMAT_XRGB8888);
 	wl->cursorbuffer = wl_shm_pool_create_buffer(wl->pool, size, 16, 16, 16*4, WL_SHM_FORMAT_ARGB8888);
 }
 
@@ -108,7 +122,7 @@ wldrawcursor(Wlwin *wl, Cursorinfo *c)
 	u32int *buf;
 	uint16_t clr[16], set[16];
 
-	buf = wl->shm_data+(wl->dx*wl->dy*4);
+	buf = wl->shm_data+wlscreensize(wl);
 	for(i = 0, j = 0; i < 16; i++, j += 2){
 		clr[i] = c->clr[j]<<8 | c->clr[j+1];
 		set[i] = c->set[j]<<8 | c->set[j+1];
