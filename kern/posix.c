@@ -13,10 +13,12 @@
 #include <sys/wait.h>
 #include <sys/time.h>
 #include <sys/select.h>
+#include <sys/ioctl.h>
 #include <signal.h>
 #include <pwd.h>
 #include <errno.h>
 #include <termios.h>
+#include <unistd.h>
 
 #include "lib.h"
 #include "dat.h"
@@ -32,6 +34,9 @@ struct Oproc
 };
 
 static pthread_key_t prdakey;
+static int resizecols;
+static int resizerows;
+static ulong resizegen;
 
 Proc*
 _getproc(void)
@@ -118,6 +123,73 @@ long
 osconswrite(int fd, void *buf, long n)
 {
 	return write(fd, buf, n);
+}
+
+static int
+consolewindowsize(int *cols, int *rows)
+{
+#ifdef TIOCGWINSZ
+	struct winsize ws;
+
+	if(!isatty(0) || !isatty(1)
+	|| ioctl(1, TIOCGWINSZ, &ws) < 0
+	|| ws.ws_col == 0 || ws.ws_row == 0)
+		return 0;
+	*cols = ws.ws_col;
+	*rows = ws.ws_row;
+	return 1;
+#else
+	USED(cols);
+	USED(rows);
+	return 0;
+#endif
+}
+
+static void
+setenvint(char *name, ulong value)
+{
+	char buf[32];
+
+	snprint(buf, sizeof buf, "%lud", value);
+	ksetenv(name, buf, 0);
+}
+
+static void
+publishwindowsize(int cols, int rows)
+{
+	/* WINCH is written last: it announces that the dimensions are ready. */
+	setenvint("COLS", cols);
+	setenvint("LINES", rows);
+	setenvint("WINCH", ++resizegen);
+	resizecols = cols;
+	resizerows = rows;
+}
+
+static void
+resizewatch(void *arg)
+{
+	int cols, rows;
+
+	USED(arg);
+	for(;;){
+		osmsleep(100);
+		if(consolewindowsize(&cols, &rows)
+		&& (cols != resizecols || rows != resizerows))
+			publishwindowsize(cols, rows);
+	}
+}
+
+void
+osstartresizewatch(void)
+{
+	int cols, rows;
+
+	if(!consolewindowsize(&cols, &rows))
+		return;
+
+	/* Publish synchronously so the remote namespace can bind these files. */
+	publishwindowsize(cols, rows);
+	kproc("console resize", resizewatch, nil);
 }
 
 void

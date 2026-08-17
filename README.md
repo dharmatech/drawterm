@@ -34,6 +34,8 @@ drawterm -h cpu.example -a auth.example -u glenda -G -c 'lc /'
 
 ### Linux and Wayland HiDPI
 
+- Propagates terminal rows, columns, and resize notifications from interactive
+  Linux `-G` sessions to terminal applications running on Plan 9.
 - Honors the integer buffer scale advertised by the Wayland compositor.
 - Supplies a high-resolution shared-memory buffer while preserving Plan 9
   screen and mouse coordinates.
