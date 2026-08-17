@@ -25,6 +25,8 @@ from WSL, and high-DPI Wayland desktops.
   - Raw-mode `Ctrl-C` is delivered to the remote program, and console reads
     can be interrupted during clean shutdown so the invoking shell regains a
     usable prompt immediately.
+  - Terminal rows, columns, and resize notifications are propagated to
+    terminal applications running on Plan 9.
 
 After installation:
 
