@@ -1,9 +1,12 @@
-# drawterm Windows/MSVC fork
+# Dharmatech Drawterm
 
-This fork tracks 9front drawterm with a small set of Windows-focused
-improvements.
+This is a downstream of 9front drawterm that preserves the upstream project
+layout while adding tested improvements for native Windows, Windows builds
+from WSL, and high-DPI Wayland desktops.
 
 ## Changes from upstream
+
+### Windows
 
 - Builds on Windows using Microsoft Visual C via `NMakefile.msvc`.
   - Upstream 9front drawterm's Windows build path uses MinGW/Cygwin.
@@ -28,6 +31,36 @@ After installation:
 ```powershell
 drawterm -h cpu.example -a auth.example -u glenda -G -c 'lc /'
 ```
+
+### Linux and Wayland HiDPI
+
+- Honors the integer buffer scale advertised by the Wayland compositor.
+- Supplies a high-resolution shared-memory buffer while preserving Plan 9
+  screen and mouse coordinates.
+- Avoids the extra low-resolution upscaling pass that previously softened
+  bitmap fonts on HiDPI displays.
+
+To give the Wayland build a distinct local name:
+
+```sh
+make CONF=linux clean
+make CONF=linux TARG=drawterm-hidpi
+```
+
+The resulting executable is `./drawterm-hidpi`. Integer desktop scaling such
+as 200% gives bitmap content exact pixel alignment; fractional scaling still
+benefits from the higher-resolution client buffer but requires a final
+compositor resampling step.
+
+Always perform a clean build when changing `CONF` values. Object files are
+shared between configurations and are not ABI-compatible in every case.
+
+## Upstream relationship
+
+The canonical upstream is 9front drawterm's `front` branch. Downstream changes
+remain organized by platform so upstream can be merged periodically without
+restructuring the source tree. Focused changes intended for upstream should be
+prepared on topic branches based directly on the current upstream `front`.
 
 ## More information
 
