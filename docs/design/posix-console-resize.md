@@ -1,7 +1,7 @@
 # POSIX `-G` terminal resize propagation
 
-Status: implemented for interactive POSIX `-G` sessions; Linux build verified,
-interactive resize validation pending.
+Status: implemented for interactive POSIX `-G` sessions; build and interactive
+resize behavior validated on Linux.
 
 ## Problem
 
@@ -43,3 +43,11 @@ fallback does not use that script and is outside this change.
 The guest terminal runtime remains responsible for observing `WINCH`, reading
 the live dimensions, and redrawing. Let Go implements that contract in its
 Plan 9 terminal adapter.
+
+## Verification
+
+On 2026-08-17, the Linux Wayland build was run from GNOME Terminal against a
+local Plan 9 guest with `-G -c`, starting Legmacs through the upstream Let Go
+runtime. Resizing GNOME Terminal while Legmacs was running caused the editor to
+resize immediately without an additional keypress, confirming the complete
+host-to-guest notification and redraw path.
