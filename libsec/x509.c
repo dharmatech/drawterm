@@ -141,14 +141,19 @@ static void	edump(Elem);
 #define CLASS_MASK 0xC0
 #define MAXOBJIDLEN 20
 
-static int ber_decode(uchar** pp, uchar* pend, Elem* pelem);
+enum {
+	Domlen = 256,
+	Maxdepth = 32,
+};
+
+static int ber_decode(uchar** pp, uchar* pend, Elem* pelem, int depth);
 static int tag_decode(uchar** pp, uchar* pend, Tag* ptag, int* pisconstr);
 static int length_decode(uchar** pp, uchar* pend, int* plength);
-static int value_decode(uchar** pp, uchar* pend, int length, int kind, int isconstr, Value* pval);
+static int value_decode(uchar** pp, uchar* pend, int length, int kind, int isconstr, Value* pval, int depth);
 static int int_decode(uchar** pp, uchar* pend, int count, int unsgned, int* pint);
 static int uint7_decode(uchar** pp, uchar* pend, int* pint);
-static int octet_decode(uchar** pp, uchar* pend, int length, int isconstr, Bytes** pbytes);
-static int seq_decode(uchar** pp, uchar* pend, int length, int isconstr, Elist** pelist);
+static int octet_decode(uchar** pp, uchar* pend, int length, int isconstr, Bytes** pbytes, int depth);
+static int seq_decode(uchar** pp, uchar* pend, int length, int isconstr, Elist** pelist, int depth);
 static int enc(uchar** pp, Elem e, int lenonly);
 static int val_enc(uchar** pp, Elem e, int *pconstr, int lenonly);
 static void uint7_enc(uchar** pp, int num, int lenonly);
@@ -168,19 +173,6 @@ emalloc(int n)
 	return p;
 }
 
-static char*
-estrdup(char *s)
-{
-	char *d;
-	int n;
-
-	n = strlen(s)+1;
-	d = emalloc(n);
-	memmove(d, s, n);
-	return d;
-}
-
-
 /*
  * Decode a[0..len] as a BER encoding of an ASN1 type.
  * The return value is one of ASN_OK, etc.
@@ -193,7 +185,7 @@ decode(uchar* a, int alen, Elem* pelem)
 	uchar* p = a;
 	int err;
 
-	err = ber_decode(&p, &a[alen], pelem);
+	err = ber_decode(&p, &a[alen], pelem, 0);
 	if(err == ASN_OK && p != &a[alen])
 		err = ASN_EVALLEN;
 	return err;
@@ -214,7 +206,7 @@ decode(uchar* a, int alen, Elem* pelem)
 
 /* Decode an ASN1 'Elem' (tag, length, value) */
 static int
-ber_decode(uchar** pp, uchar* pend, Elem* pelem)
+ber_decode(uchar** pp, uchar* pend, Elem* pelem, int depth)
 {
 	int err;
 	int isconstr;
@@ -222,15 +214,17 @@ ber_decode(uchar** pp, uchar* pend, Elem* pelem)
 	Tag tag;
 	Value val;
 
+	if(depth > Maxdepth)
+		return ASN_ETOOBIG;
 	memset(pelem, 0, sizeof(*pelem));
 	err = tag_decode(pp, pend, &tag, &isconstr);
 	if(err == ASN_OK) {
 		err = length_decode(pp, pend, &length);
 		if(err == ASN_OK) {
 			if(tag.class == Universal)
-				err = value_decode(pp, pend, length, tag.num, isconstr, &val);
+				err = value_decode(pp, pend, length, tag.num, isconstr, &val, depth);
 			else
-				err = value_decode(pp, pend, length, OCTET_STRING, 0, &val);
+				err = value_decode(pp, pend, length, OCTET_STRING, 0, &val, depth);
 			if(err == ASN_OK) {
 				pelem->tag = tag;
 				pelem->val = val;
@@ -296,7 +290,7 @@ length_decode(uchar** pp, uchar* pend, int* plength)
 
 /* Decode a value field  */
 static int
-value_decode(uchar** pp, uchar* pend, int length, int kind, int isconstr, Value* pval)
+value_decode(uchar** pp, uchar* pend, int length, int kind, int isconstr, Value* pval, int depth)
 {
 	int err;
 	Bytes* va;
@@ -392,7 +386,7 @@ value_decode(uchar** pp, uchar* pend, int length, int kind, int isconstr, Value*
 
 	case OCTET_STRING:
 	case ObjectDescriptor:
-		err = octet_decode(&p, pend, length, isconstr, &va);
+		err = octet_decode(&p, pend, length, isconstr, &va, depth+1);
 		if(err == ASN_OK) {
 			pval->tag = VOctets;
 			pval->u.octetsval = va;
@@ -464,7 +458,7 @@ value_decode(uchar** pp, uchar* pend, int length, int kind, int isconstr, Value*
 		break;
 
 	case SEQUENCE:
-		err = seq_decode(&p, pend, length, isconstr, &vl);
+		err = seq_decode(&p, pend, length, isconstr, &vl, depth+1);
 		if(err == ASN_OK) {
 			pval->tag = VSeq ;
 			pval->u.seqval = vl;
@@ -472,7 +466,7 @@ value_decode(uchar** pp, uchar* pend, int length, int kind, int isconstr, Value*
 		break;
 
 	case SETOF:
-		err = seq_decode(&p, pend, length, isconstr, &vl);
+		err = seq_decode(&p, pend, length, isconstr, &vl, depth+1);
 		if(err == ASN_OK) {
 			pval->tag = VSet;
 			pval->u.setval = vl;
@@ -492,7 +486,7 @@ value_decode(uchar** pp, uchar* pend, int length, int kind, int isconstr, Value*
 	case GeneralString:
 	case UniversalString:
 	case BMPString:
-		err = octet_decode(&p, pend, length, isconstr, &va);
+		err = octet_decode(&p, pend, length, isconstr, &va, depth+1);
 		if(err == ASN_OK) {
 			uchar *s;
 			char *d;
@@ -645,7 +639,7 @@ uint7_decode(uchar** pp, uchar* pend, int* pint)
  * and otherwise that specified length fits within (*pp..pend)
  */
 static int
-octet_decode(uchar** pp, uchar* pend, int length, int isconstr, Bytes** pbytes)
+octet_decode(uchar** pp, uchar* pend, int length, int isconstr, Bytes** pbytes, int depth)
 {
 	int err;
 	uchar* p;
@@ -672,7 +666,7 @@ octet_decode(uchar** pp, uchar* pend, int length, int isconstr, Bytes** pbytes)
 				break;
 			}
 			pold = p;
-			err = ber_decode(&p, pend, &elem);
+			err = ber_decode(&p, pend, &elem, depth);
 			if(err != ASN_OK)
 				break;
 			switch(elem.val.tag) {
@@ -698,7 +692,8 @@ cloop_done:
 		if(err != ASN_OK){
 			freebytes(ans);
 			ans = nil;
-		}
+		} else if(ans == nil)
+			ans = newbytes(0);
 	}
 	*pp = p;
 	*pbytes = ans;
@@ -711,7 +706,7 @@ cloop_done:
  * and otherwise that specified length fits within (*p..pend)
  */
 static int
-seq_decode(uchar** pp, uchar* pend, int length, int isconstr, Elist** pelist)
+seq_decode(uchar** pp, uchar* pend, int length, int isconstr, Elist** pelist, int depth)
 {
 	int err;
 	uchar* p;
@@ -738,7 +733,7 @@ seq_decode(uchar** pp, uchar* pend, int length, int isconstr, Elist** pelist)
 				break;
 			}
 			pold = p;
-			err = ber_decode(&p, pend, &elem);
+			err = ber_decode(&p, pend, &elem, depth+1);
 			if(err != ASN_OK)
 				break;
 			if(elem.val.tag == VEOC) {
@@ -784,6 +779,7 @@ encode(Elem e, Bytes** pbytes)
 
 	p = &uc;
 	err = enc(&p, e, 1);
+	*pbytes = nil;
 	if(err == ASN_OK) {
 		ans = newbytes(p-&uc);
 		p = ans->data;
@@ -1025,13 +1021,11 @@ val_enc(uchar** pp, Elem e, int *pconstr, int lenonly)
 			el = e.val.u.setval;
 		else
 			err = ASN_EINVAL;
-		if(el != nil) {
-			*pconstr = CONSTR_MASK;
-			for(; el != nil; el = el->tl) {
-				err = enc(&p, el->hd, lenonly);
-				if(err != ASN_OK)
-					break;
-			}
+		*pconstr = CONSTR_MASK;
+		for(; el != nil; el = el->tl) {
+			err = enc(&p, el->hd, lenonly);
+			if(err != ASN_OK)
+				break;
 		}
 		break;
 
@@ -1589,6 +1583,7 @@ typedef struct CertX509 {
 	int	signature_alg;
 	Bits*	signature;
 	int	curve;
+	Bytes*	ext;
 } CertX509;
 
 /* Algorithm object-ids */
@@ -1724,6 +1719,8 @@ static void (*namedcurves[])(mpint *p, mpint *a, mpint *b, mpint *x, mpint *y, m
 	nil,
 };
 
+static void appendaltnames(char *name, int nname, Bytes *ext, int req);
+
 static void
 freecert(CertX509* c)
 {
@@ -1735,6 +1732,7 @@ freecert(CertX509* c)
 	free(c->subject);
 	freebits(c->publickey);
 	freebits(c->signature);
+	freebytes(c->ext);
 	free(c);
 }
 
@@ -1863,6 +1861,7 @@ decode_cert(uchar *buf, int len)
 	c->publickey = nil;
 	c->signature_alg = -1;
 	c->signature = nil;
+	c->ext = nil;
 
 	/* Certificate */
  	if(!is_seq(&ecert, &elcert) || elistlen(elcert) !=3)
@@ -1900,6 +1899,13 @@ decode_cert(uchar *buf, int len)
  	esubj = &el->hd;
  	el = el->tl;
  	epubkey = &el->hd;
+	if(el->tl != nil
+	&& el->tl->hd.tag.class == Context
+	&& el->tl->hd.tag.num == 3
+	&& el->tl->hd.val.tag == VOctets){
+		c->ext = el->tl->hd.val.u.octetsval;
+		el->tl->hd.val.u.octetsval = nil;	/* transfer ownership */
+	}
 	if(!is_int(eserial, &c->serial)) {
 		if(!is_bigint(eserial, &b))
 			goto errret;
@@ -1924,8 +1930,6 @@ decode_cert(uchar *buf, int len)
 
 	/* resume CertificateInfo */
  	c->subject = parse_name(esubj);
-	if(c->subject == nil)
-		goto errret;
 
 	/* SubjectPublicKeyInfo */
 	if(!is_seq(epubkey, &elpubkey))
@@ -2105,7 +2109,7 @@ digest_certinfo(uchar *cert, int ncert, DigestAlg *da, uchar *digest)
 	   p+length < p)
 		return -1;
 	info = p;
-	if(ber_decode(&p, pend, &elem) != ASN_OK)
+	if(ber_decode(&p, pend, &elem, 0) != ASN_OK)
 		return -1;
 	freevalfields(&elem.val);
 	if(elem.tag.num != SEQUENCE)
@@ -2237,17 +2241,33 @@ end:
 static void
 copysubject(char *name, int nname, char *subject)
 {
-	char *e;
+	char *e, *at;
+	int i;
 
-	if(name == nil)
+	if(name == nil || nname < 1)
 		return;
 	memset(name, 0, nname);
 	if(subject == nil)
 		return;
-	strncpy(name, subject, nname-1);
-	e = strchr(name, ',');
-	if(e != nil)
+
+	if((e = strchr(subject, ',')) != nil)
 		*e = 0;	/* take just CN part of Distinguished Name */
+
+	i = 0;
+	if((at = strchr(subject, '@')) != nil){
+		i = ++at - subject;
+		if(i >= nname){
+			i = 0;
+			goto botch;
+		}
+		strncpy(name, subject, i);
+	}
+botch:
+	strncpy(name+i, subject+i, nname-i);
+	name[nname-1] = 0;
+
+	if(e != nil)
+		*e = ',';
 }
 
 ECpub*
@@ -2260,6 +2280,7 @@ X509toECpub(uchar *cert, int ncert, char *name, int nname, ECdomain *dom)
 	if(c == nil)
 		return nil;
 	copysubject(name, nname, c->subject);
+	appendaltnames(name, nname, c->ext, 0);
 	pub = nil;
 	if(c->publickey_alg == ALG_ecPublicKey){
 		ecdominit(dom, namedcurves[c->curve]);
@@ -2302,6 +2323,7 @@ X509toRSApub(uchar *cert, int ncert, char *name, int nname)
 	if(c == nil)
 		return nil;
 	copysubject(name, nname, c->subject);
+	appendaltnames(name, nname, c->ext, 0);
 	pub = nil;
 	if(c->publickey_alg == ALG_rsaEncryption)
 		pub = asn1toRSApub(c->publickey->data, c->publickey->len);
@@ -2375,37 +2397,7 @@ mkbigint(mpint *p)
 	return e;
 }
 
-static int
-printable(char *s)
-{
-	int c;
-
-	while((c = (uchar)*s++) != 0){
-		if((c >= 'a' && c <= 'z')
-		|| (c >= 'A' && c <= 'Z')
-		|| (c >= '0' && c <= '9')
-		|| strchr("'=()+,-./:? ", c) != nil)
-			continue;
-		return 0;
-	}
-	return 1;
-}
-
 #define DirectoryString 0
-
-static Elem
-mkstring(char *s, int t)
-{
-	Elem e;
-
-	if(t == DirectoryString)
-		t = printable(s) ? PrintableString : UTF8String;
-	e.tag.class = Universal;
-	e.tag.num = t;
-	e.val.tag = VString;
-	e.val.u.stringval = estrdup(s);
-	return e;
-}
 
 static Elem
 mkoctet(uchar *buf, int buflen)
@@ -2416,34 +2408,6 @@ mkoctet(uchar *buf, int buflen)
 	e.tag.num = OCTET_STRING;
 	e.val.tag = VOctets;
 	e.val.u.octetsval = makebytes(buf, buflen);
-	return e;
-}
-
-static Elem
-mkbits(uchar *buf, int buflen)
-{
-	Elem e;
-
-	e.tag.class = Universal;
-	e.tag.num = BIT_STRING;
-	e.val.tag = VBitString;
-	e.val.u.bitstringval = makebits(buf, buflen, 0);
-	return e;
-}
-
-static Elem
-mkutc(long t)
-{
-	Elem e;
-	char utc[50];
-	Tm *tm = gmtime(t);
-
-	e.tag.class = Universal;
-	e.tag.num = UTCTime;
-	e.val.tag = VString;
-	snprint(utc, sizeof(utc), "%.2d%.2d%.2d%.2d%.2d%.2dZ",
-		tm->year % 100, tm->mon+1, tm->mday, tm->hour, tm->min, tm->sec);
-	e.val.u.stringval = estrdup(utc);
 	return e;
 }
 
@@ -2472,18 +2436,6 @@ mkseq(Elist *el)
 }
 
 static Elem
-mkset(Elist *el)
-{
-	Elem e;
-
-	e.tag.class = Universal;
-	e.tag.num = SETOF;
-	e.val.tag = VSet;
-	e.val.u.setval = el;
-	return e;
-}
-
-static Elem
 mkalg(int alg)
 {
 	return mkseq(mkel(mkoid(alg_oid_tab[alg]), mkel(Null(), nil)));
@@ -2505,33 +2457,6 @@ Ints7pref DN_oid[] = {
 	{7, 1,2,840,113549,1,9,1,       "E=", IA5String},
 	{7, 0,9,2342,19200300,100,1,25,	"DC=",IA5String},
 };
-
-static Elem
-mkname(Ints7pref *oid, char *subj)
-{
-	return mkset(mkel(mkseq(mkel(mkoid((Ints*)oid), mkel(mkstring(subj, oid->stype), nil))), nil));
-}
-
-static Elem
-mkDN(char *dn)
-{
-	int i, j, nf;
-	char *f[20], *prefix, *d2 = estrdup(dn);
-	Elist* el = nil;
-
-	nf = tokenize(d2, f, nelem(f));
-	for(i=nf-1; i>=0; i--){
-		for(j=0; j<nelem(DN_oid); j++){
-			prefix = DN_oid[j].prefix;
-			if(strncmp(f[i],prefix,strlen(prefix))==0){
-				el = mkel(mkname(&DN_oid[j],f[i]+strlen(prefix)), el);
-				break;
-			}
-		}
-	}
-	free(d2);
-	return mkseq(el);
-}
 
 /*
  * DigestInfo ::= SEQUENCE {
@@ -2575,107 +2500,113 @@ asn1encodedigest(DigestState* (*fun)(uchar*, ulong, uchar*, DigestState*), uchar
 	return -1;
 }
 
-static Elem
-mkcont(Elem e, int num)
-{
-	e = mkseq(mkel(e, nil));
-	e.tag.class = Context;
-	e.tag.num = num;
-	return e;
-}
-
-static Elem
-mkaltname(char *s)
-{
-	Elem e;
-	int i;
-
-	for(i=0; i<nelem(DN_oid); i++){
-		if(strstr(s, DN_oid[i].prefix) != nil)
-			return mkcont(mkDN(s), 4); /* DN */
-	}
-	e = mkstring(s, IA5String);
-	e.tag.class = Context;
-	e.tag.num = strchr(s, '@') != nil ? 1 : 2; /* email : DNS */
-	return e;
-}
-
-static Elist*
-mkaltnames(char *alts)
-{
-	Elist *el;
-	char *s, *p;
-
-	if(alts == nil)
-		return nil;
-
-	el = nil;
-	alts = estrdup(alts);
-	for(s = alts; s != nil; s = p){
-		while(*s == ' ')
-			s++;
-		if(*s == '\0')
-			break;
-		if((p = strchr(s, ',')) != nil)
-			*p++ = 0;
-		el = mkel(mkaltname(s), el);
-	}
-	free(alts);
-	return el;
-}
-
-static Elist*
-mkextel(Elem e, Ints *oid, Elist *el)
-{
-	Bytes *b = nil;
-
-	if(encode(e, &b) == ASN_OK){
-		el = mkel(mkseq(
-			mkel(mkoid(oid),
-			mkel(mkoctet(b->data, b->len),
-			nil))), el);
-		freebytes(b);
-	}
-	freevalfields(&e.val);
-	return el;
-}
-
 static Ints15 oid_subjectAltName = {4, 2, 5, 29, 17 };
 static Ints15 oid_extensionRequest = { 7, 1, 2, 840, 113549, 1, 9, 14};
 
-static Elist*
-mkextensions(char *alts, int req)
+static void
+appendaltnames(char *name, int nname, Bytes *ext, int isreq)
 {
-	Elist *sl, *xl;
+	Elem eext, ealt, edn;
+	Elist *el, *l;
+	Ints *oid;
+	char *alt, *e, buf[Domlen];
+	char *np, *ne;
+	int len;
 
-	xl = nil;
-	if((sl = mkaltnames(alts)) != nil)
-		xl = mkextel(mkseq(sl), (Ints*)&oid_subjectAltName, xl);
-	if(xl != nil){
-		if(req) return mkel(mkcont(mkseq(
-			mkel(mkoid((Ints*)&oid_extensionRequest),
-			mkel(mkset(mkel(mkseq(xl), nil)), nil))), 0), nil);
-		return mkel(mkcont(mkseq(xl), 3), nil);
+	if(name == nil || nname < 1 || ext == nil)
+		return;
+	if(decode(ext->data, ext->len, &eext) != ASN_OK)
+		return;
+	if(isreq){
+		if(!is_seq(&eext, &el) || elistlen(el) != 2)
+			goto errext;
+		if(!is_oid(&el->hd, &oid) || !ints_eq(oid, (Ints*)&oid_extensionRequest))
+			goto errext;
+		el = el->tl;
+		if(!is_set(&el->hd, &el))
+			goto errext;
+		if(!is_seq(&el->hd, &el))
+			goto errext;
+	} else {
+		if(!is_seq(&eext, &el))
+			goto errext;
 	}
-	return nil;
-}
-
-static char*
-splitalts(char *s)
-{
-	int q;
-
-	for(q = 0; *s != '\0'; s++){
-		if(*s == '\'')
-			q ^= 1;
-		else if(q == 0 && *s == ','){
-			*s++ = 0;
-			return s;
+	for(; el != nil; el = el->tl){
+		if(!is_seq(&el->hd, &l) || elistlen(l) != 2)
+			goto errext;
+		if(!is_oid(&l->hd, &oid) || !ints_eq(oid, (Ints*)&oid_subjectAltName))
+			continue;
+		el = l->tl;
+		break;
+	}
+	if(el == nil)
+		goto errext;
+	if(!is_octetstring(&el->hd, &ext))
+		goto errext;
+	if(decode(ext->data, ext->len, &ealt) != ASN_OK)
+		goto errext;
+	if(!is_seq(&ealt, &el))
+		goto erralt;
+	np = memchr(name, '\0', nname);
+	if(np == nil)
+		goto erralt;
+	ne = name + nname;
+	for(; el != nil; el = el->tl){
+		ext = el->hd.val.u.octetsval;
+		switch(el->hd.tag.num){
+		default:
+			continue;
+		case 1:	/* email */
+		case 2:	/* DNS */
+			if(el->hd.val.tag != VOctets)
+				goto erralt;
+			alt = smprint("%.*s", ext->len, (char*)ext->data);
+			break;
+		case 4:	/* DN */
+			if(el->hd.val.tag != VOctets
+			|| decode(ext->data, ext->len, &edn) != ASN_OK)
+				goto erralt;
+			alt = parse_name(&edn);
+			freevalfields(&edn.val);
+			break;
 		}
-	}
-	return nil;
-}
+		if(alt == nil)
+			goto erralt;
 
+		/* take just CN part of Distinguished Name */
+		if((e = strchr(alt, ',')) != nil)
+			*e = '\0';
+
+		len = strlen(alt);
+		if(strncmp(name, alt, len) == 0 && strchr(",", name[len]) != nil){
+			free(alt);	/* same as the subject (idn) */
+			continue;
+		}
+
+		/* decode international domain names */
+		len = 0;
+		if((e = strchr(alt, '@')) != nil){
+			len = ++e - alt;
+			if(len >= sizeof(buf))
+				goto botch;
+			strncpy(buf, alt, len);
+		}
+
+		len = strlen(alt);
+		if(strncmp(name, alt, len) == 0 && strchr(",", name[len]) != nil){
+			free(alt);	/* same as the subject (utf) */
+			continue;
+		}
+botch:
+		np = seprint(np, ne, "%s%s", (np != name)? ", ": "", alt);
+		free(alt);
+	}
+erralt:
+	freevalfields(&ealt.val);
+errext:
+	freevalfields(&eext.val);
+}
+	
 static Bytes*
 encode_rsapubkey(RSApub *pk)
 {
@@ -2703,169 +2634,6 @@ asn1encodeRSApub(RSApub *pk, uchar *buf, int len)
 	memmove(buf, b->data, len = b->len);
 	freebytes(b);
 	return len;
-}
-
-uchar*
-X509rsagen(RSApriv *priv, char *subj, ulong valid[2], int *certlen)
-{
-	int serial = 0, sigalg = ALG_sha256WithRSAEncryption;
-	uchar *cert = nil;
-	Bytes *certbytes, *pkbytes, *certinfobytes, *sigbytes;
-	Elem e, certinfo;
-	DigestAlg *da;
-	uchar digest[MAXdlen], *buf;
-	int buflen;
-	mpint *pkcs1;
-	char *alts;
-
-	if((pkbytes = encode_rsapubkey(&priv->pub)) == nil)
-		return nil;
-
-	subj = estrdup(subj);
-	alts = splitalts(subj);
-
-	e = mkseq(
-		mkel(mkcont(mkint(2), 0),
-		mkel(mkint(serial),
-		mkel(mkalg(sigalg),
-		mkel(mkDN(subj),
-		mkel(mkseq(
-			mkel(mkutc(valid[0]),
-			mkel(mkutc(valid[1]),
-			nil))),
-		mkel(mkDN(subj),
-		mkel(mkseq(
-			mkel(mkalg(ALG_rsaEncryption),
-			mkel(mkbits(pkbytes->data, pkbytes->len),
-			nil))),
-		mkextensions(alts, 0)))))))));
-	freebytes(pkbytes);
-	if(encode(e, &certinfobytes) != ASN_OK)
-		goto errret;
-
-	da = digestalg[sigalg];
-	(*da->fun)(certinfobytes->data, certinfobytes->len, digest, 0);
-	freebytes(certinfobytes);
-	certinfo = e;
-
-	sigbytes = encode_digest(da, digest);
-	if(sigbytes == nil)
-		goto errret;
-	pkcs1 = pkcs1padbuf(sigbytes->data, sigbytes->len, priv->pub.n, 1);
-	freebytes(sigbytes);
-	if(pkcs1 == nil)
-		goto errret;
-
-	rsadecrypt(priv, pkcs1, pkcs1);
-	buflen = mptobe(pkcs1, nil, 0, &buf);
-	mpfree(pkcs1);
-	e = mkseq(
-		mkel(certinfo,
-		mkel(mkalg(sigalg),
-		mkel(mkbits(buf, buflen),
-		nil))));
-	free(buf);
-	if(encode(e, &certbytes) != ASN_OK)
-		goto errret;
-	if(certlen != nil)
-		*certlen = certbytes->len;
-	cert = (uchar*)certbytes;
-	memmove(cert, certbytes->data, certbytes->len);
-errret:
-	freevalfields(&e.val);
-	free(subj);
-	return cert;
-}
-
-uchar*
-X509rsareq(RSApriv *priv, char *subj, int *certlen)
-{
-	/* RFC 2314, PKCS #10 Certification Request Syntax */
-	int version = 0, sigalg = ALG_sha256WithRSAEncryption;
-	uchar *cert = nil;
-	Bytes *certbytes, *pkbytes, *certinfobytes, *sigbytes;
-	Elem e, certinfo;
-	DigestAlg *da;
-	uchar digest[MAXdlen], *buf;
-	int buflen;
-	mpint *pkcs1;
-	char *alts;
-
-	if((pkbytes = encode_rsapubkey(&priv->pub)) == nil)
-		return nil;
-
-	subj = estrdup(subj);
-	alts = splitalts(subj);
-
-	e = mkseq(
-		mkel(mkint(version),
-		mkel(mkDN(subj),
-		mkel(mkseq(
-			mkel(mkalg(ALG_rsaEncryption),
-			mkel(mkbits(pkbytes->data, pkbytes->len),
-			nil))),
-		mkextensions(alts, 1)))));
-	freebytes(pkbytes);
-	if(encode(e, &certinfobytes) != ASN_OK)
-		goto errret;
-	da = digestalg[sigalg];
-	(*da->fun)(certinfobytes->data, certinfobytes->len, digest, 0);
-	freebytes(certinfobytes);
-	certinfo = e;
-
-	sigbytes = encode_digest(da, digest);
-	if(sigbytes == nil)
-		goto errret;
-	pkcs1 = pkcs1padbuf(sigbytes->data, sigbytes->len, priv->pub.n, 1);
-	freebytes(sigbytes);
-	if(pkcs1 == nil)
-		goto errret;
-
-	rsadecrypt(priv, pkcs1, pkcs1);
-	buflen = mptobe(pkcs1, nil, 0, &buf);
-	mpfree(pkcs1);
-	e = mkseq(
-		mkel(certinfo,
-		mkel(mkalg(sigalg),
-		mkel(mkbits(buf, buflen),
-		nil))));
-	free(buf);
-	if(encode(e, &certbytes) != ASN_OK)
-		goto errret;
-	if(certlen != nil)
-		*certlen = certbytes->len;
-	cert = (uchar*)certbytes;
-	memmove(cert, certbytes->data, certbytes->len);
-errret:
-	freevalfields(&e.val);
-	free(subj);
-	return cert;
-}
-
-static void
-digestSPKI(int alg, uchar *pubkey, int npubkey, DigestState* (*fun)(uchar*, ulong, uchar*, DigestState*), uchar *digest)
-{
-	Bytes *b = nil;
-	Elem e = mkseq(mkel(mkalg(alg), mkel(mkbits(pubkey, npubkey), nil)));
-	encode(e, &b);
-	freevalfields(&e.val);
-	(*fun)(b->data, b->len, digest, nil);
-	freebytes(b);
-}
-
-int
-X509digestSPKI(uchar *cert, int ncert, DigestState* (*fun)(uchar*, ulong, uchar*, DigestState*), uchar *digest)
-{
-	CertX509 *c;
-
-	c = decode_cert(cert, ncert);
-	if(c == nil){
-		werrstr("cannot decode cert");
-		return -1;
-	}
-	digestSPKI(c->publickey_alg, c->publickey->data, c->publickey->len, fun, digest);
-	freecert(c);
-	return 0;
 }
 
 static char*
@@ -2915,25 +2683,39 @@ edump(Elem e)
 {
 	Value v;
 	Elist *el;
-	int i;
+	int i, n;
 
 	print("%s{", tagdump(e.tag));
 	v = e.val;
 	switch(v.tag){
 	case VBool: print("Bool %d",v.u.boolval); break;
 	case VInt: print("Int %d",v.u.intval); break;
-	case VOctets: print("Octets[%d] %.2x%.2x...",v.u.octetsval->len,v.u.octetsval->data[0],v.u.octetsval->data[1]); break;
-	case VBigInt: print("BigInt[%d] %.2x%.2x...",v.u.bigintval->len,v.u.bigintval->data[0],v.u.bigintval->data[1]); break;
 	case VReal: print("Real..."); break;
 	case VOther: print("Other..."); break;
-	case VBitString: print("BitString[%d]...", v.u.bitstringval->len*8 - v.u.bitstringval->unusedbits); break;
 	case VNull: print("Null"); break;
 	case VEOC: print("EOC..."); break;
+	case VBitString: print("BitString[%d]...", v.u.bitstringval->len*8 - v.u.bitstringval->unusedbits); break;
+	case VString: print("String \"%s\"",v.u.stringval); break;
+	case VOctets:
+		n = v.u.octetsval->len;
+		print("Octets[%d] ", v.u.octetsval->len);
+		for(i = 0; i < n && i < 16; i++)
+			print("%.2x", v.u.octetsval->data[i]);
+		if(n > i)
+			print("...");
+		break;
+	case VBigInt:
+		n = v.u.bigintval->len;
+		print("BigInt[%d] ", v.u.bigintval->len);
+		for(i = 0; i < n && i < 16; i++)
+			print("%.2x", v.u.bigintval->data[i]);
+		if(n > i)
+			print("...");
+		break;
 	case VObjId: print("ObjId");
 		for(i = 0; i<v.u.objidval->len; i++)
 			print(" %d", v.u.objidval->data[i]);
 		break;
-	case VString: print("String \"%s\"",v.u.stringval); break;
 	case VSeq: print("Seq\n");
 		for(el = v.u.seqval; el!=nil; el = el->tl)
 			edump(el->hd);
@@ -2956,78 +2738,4 @@ asn1dump(uchar *der, int len)
 		exits("didn't parse");
 	}
 	edump(e);
-}
-
-void
-X509dump(uchar *cert, int ncert)
-{
-	char *e;
-	CertX509 *c;
-	RSApub *rsapub;
-	ECpub *ecpub;
-	ECdomain ecdom;
-	int digestlen;
-	uchar digest[MAXdlen];
-
-	print("begin X509dump\n");
-	c = decode_cert(cert, ncert);
-	if(c == nil){
-		print("cannot decode cert\n");
-		return;
-	}
-
-	digestlen = digest_certinfo(cert, ncert, digestalg[c->signature_alg], digest);
-	if(digestlen <= 0){
-		freecert(c);
-		print("cannot decode certinfo\n");
-		return;
-	}
-
-	print("serial %d\n", c->serial);
-	print("issuer %s\n", c->issuer);
-	print("validity %s %s\n", c->validity_start, c->validity_end);
-	print("subject %s\n", c->subject);
-	print("sigalg=%d digest=%.*H\n", c->signature_alg, digestlen, digest);
-	print("publickey_alg=%d pubkey[%d] %.*H\n", c->publickey_alg, c->publickey->len,
-		c->publickey->len, c->publickey->data);
-
-	switch(c->publickey_alg){
-	case ALG_rsaEncryption:
-		rsapub = asn1toRSApub(c->publickey->data, c->publickey->len);
-		if(rsapub != nil){
-			print("rsa pubkey e=%B n(%d)=%B\n", rsapub->ek, mpsignif(rsapub->n), rsapub->n);
-			e = X509rsaverifydigest(c->signature->data, c->signature->len,
-				digest, digestlen, rsapub);
-			if(e==nil)
-				e = "nil (meaning ok)";
-			print("self-signed X509rsaverifydigest returns: %s\n", e);
-			rsapubfree(rsapub);
-		}
-		break;
-	case ALG_ecPublicKey:
-		ecdominit(&ecdom, namedcurves[c->curve]);
-		ecpub = ecdecodepub(&ecdom, c->publickey->data, c->publickey->len);
-		if(ecpub != nil){
-			e = X509ecdsaverifydigest(c->signature->data, c->signature->len,
-				digest, digestlen, &ecdom, ecpub);
-			if(e==nil)
-				e = "nil (meaning ok)";
-			print("self-signed X509ecdsaverifydigest returns: %s\n", e);
-			ecpubfree(ecpub);
-		}
-		ecdomfree(&ecdom);
-		break;
-	}
-
-	digestSPKI(c->publickey_alg, c->publickey->data, c->publickey->len, sha2_256, digest);
-	print("publickey_thumbprint sha256=%.*[\n", SHA2_256dlen, digest);
-
-	sha2_256(cert, ncert, digest, nil);
-	print("cert_thumbprint sha256=%.*[\n", SHA2_256dlen, digest);
-
-	sha1(cert, ncert, digest, nil);
-	print("cert_thumbprint sha1=%.*H\n", SHA1dlen, digest);
-
-	freecert(c);
-	print("end X509dump\n");
 }

@@ -48,7 +48,7 @@ allocmemimaged(Rectangle r, ulong chan, Memdata *md)
 
 	i->r = r;
 	i->clipr = r;
-	i->flags = 0;
+	i->flags = Dx(r) == 1 && Dy(r) == 1? Fsimple: 0;
 	i->layer = nil;
 	i->cmap = memdefcmap;
 	if(memsetchan(i, chan) < 0){
@@ -76,6 +76,10 @@ allocmemimage(Rectangle r, ulong chan)
 		return nil;
 	}
 	nw = wordsperline(r, d)*Dy(r);
+	if(nw >= ((1UL<<31)-sizeof(Memdata*)-sizeof(ulong))/sizeof(ulong)){
+		werrstr("bad rectangle %R, depth %d", r, d);
+		return nil;
+	}
 
 	md = malloc(sizeof(Memdata));
 	if(md == nil)
@@ -144,7 +148,7 @@ memsetchan(Memimage *i, ulong chan)
 	int d;
 	int t, j, k;
 	ulong cc;
-	int bytes;
+	int bytes, usedt;
 
 	if((d = chantodepth(chan)) == 0) {
 		werrstr("bad channel descriptor");
@@ -155,9 +159,10 @@ memsetchan(Memimage *i, ulong chan)
 	i->chan = chan;
 	i->flags &= ~(Fgrey|Falpha|Fcmap|Fbytes);
 	bytes = 1;
+	usedt = 0;
 	for(cc=chan, j=0, k=0; cc; j+=NBITS(cc), cc>>=8, k++){
 		t=TYPE(cc);
-		if(t < 0 || t >= NChan){
+		if(t < 0 || t >= NChan || (t != CIgnore && usedt & (1<<t))){
 			werrstr("bad channel string");
 			return -1;
 		}
@@ -173,6 +178,7 @@ memsetchan(Memimage *i, ulong chan)
 		i->shift[t] = j;
 		i->mask[t] = (1<<NBITS(cc))-1;
 		i->nbits[t] = NBITS(cc);
+		usedt |= 1<<t;
 		if(NBITS(cc) != 8)
 			bytes = 0;
 	}

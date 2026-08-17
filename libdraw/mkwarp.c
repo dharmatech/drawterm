@@ -8,7 +8,7 @@ void invm(Matrix);
 
 /* 19.13 fixed-point number operations */
 
-#define ε		1e-6
+#define EPSILON		1e-6
 #define flt2fix(n)	((long)((n)*(1<<13) + ((n) < 0? -0.5: 0.5)))
 
 static double
@@ -34,8 +34,8 @@ mkwarp(double m0[3][3])
 	w.m[2][0] = 0; w.m[2][1] = 0; w.m[2][2] = 1<<13;
 
 	if(m0[0][1] == 0 && m0[1][0] == 0
-	&& m0[0][0] > 1 && (fract(m0[0][0]) <= ε || 1.0 - fract(m0[0][0]) <= ε)
-	&& m0[1][1] > 1 && (fract(m0[1][1]) <= ε || 1.0 - fract(m0[1][1]) <= ε))
+	&& m0[0][0] > 1 && (fract(m0[0][0]) <= EPSILON || 1.0 - fract(m0[0][0]) <= EPSILON)
+	&& m0[1][1] > 1 && (fract(m0[1][1]) <= EPSILON || 1.0 - fract(m0[1][1]) <= EPSILON))
 		w.flags |= WFintupscale;
 	return w;
 }

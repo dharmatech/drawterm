@@ -479,7 +479,7 @@ cpubody(void)
 	if(mountfactotum() < 0){
 		dttrace("factotum unavailable; trying secstore/password fallback");
 		if(secstore == nil)
-			secstore = authserver;
+			secstore = "$auth";
 	 	if(havesecstore(secstore, user)){
 			dttrace("secstore available for user %s", user);
 			s = secstorefetch(secstore, user, pass);

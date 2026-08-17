@@ -37,6 +37,7 @@ struct Wlwin {
 	int dy;
 	int monx;
 	int mony;
+	int scale;	/* integer Wayland buffer scale */
 	Mouse mouse;
 	Clipboard clip;
 	Rectangle r;
@@ -46,6 +47,7 @@ struct Wlwin {
 	/* Wayland State */
 	int runing;
 	int poolsize;
+	int compositorversion;
 	int pointerserial;
 	void *shm_data;
 	struct wl_compositor *compositor;
@@ -89,4 +91,3 @@ void wldrawcursor(Wlwin*, Cursorinfo*);
 void wlresize(Wlwin*, int, int);
 void wlflush(Wlwin*);
 void wlclose(Wlwin*);
-

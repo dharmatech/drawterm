@@ -36,6 +36,7 @@ newwlwin(void)
 	wl->dy = 1024;
 	wl->monx = wl->dx;
 	wl->mony = wl->dy;
+	wl->scale = 1;
 	return wl;
 }
 
@@ -49,45 +50,46 @@ wlclose(Wlwin *wl)
 void
 wlflush(Wlwin *wl)
 {
-	Point p;
+	int dx, s, x, xx, y, yy;
+	u32int *dst, *src;
 
+	s = wl->scale;
+	if(wl->compositorversion >= WL_SURFACE_SET_BUFFER_SCALE_SINCE_VERSION)
+		wl_surface_set_buffer_scale(wl->surface, s);
 	wl_surface_attach(wl->surface, wl->screenbuffer, 0, 0);
 	if(wl->dirty){
-		p.x = wl->r.min.x;
-		for(p.y = wl->r.min.y; p.y < wl->r.max.y; p.y++)
-			memcpy(wl->shm_data+(p.y*wl->dx+p.x)*4, byteaddr(gscreen, p), Dx(wl->r)*4);
-		wl_surface_damage(wl->surface, p.x, wl->r.min.y, Dx(wl->r), Dy(wl->r));
+		dx = Dx(wl->r);
+		if(s == 1){
+			for(y = wl->r.min.y; y < wl->r.max.y; y++)
+				memcpy(wl->shm_data+(y*wl->dx+wl->r.min.x)*4,
+					byteaddr(gscreen, Pt(wl->r.min.x, y)), dx*4);
+		}else{
+			/* Keep Plan 9 coordinates unchanged while supplying a
+			 * high-resolution buffer to the compositor. */
+			for(y = wl->r.min.y; y < wl->r.max.y; y++){
+				src = (u32int*)byteaddr(gscreen, Pt(wl->r.min.x, y));
+				for(yy = 0; yy < s; yy++){
+					dst = (u32int*)wl->shm_data
+						+ (y*s+yy)*(wl->dx*s) + wl->r.min.x*s;
+					for(x = 0; x < dx; x++)
+						for(xx = 0; xx < s; xx++)
+							*dst++ = src[x];
+				}
+			}
+		}
+		wl_surface_damage(wl->surface, wl->r.min.x, wl->r.min.y, dx, Dy(wl->r));
 		wl->dirty = 0;
 	}
 	wl_surface_commit(wl->surface);
 }
-
-void  _screenresize(Rectangle);
 
 void
 wlresize(Wlwin *wl, int x, int y)
 {
 	Rectangle r;
 
-	wl->dx = x;
-	wl->dy = y;
-
-	qlock(&drawlock);
-	wlallocbuffer(wl);
-	r = Rect(0, 0, wl->dx, wl->dy);
-	if(gscreen != nil)
-		freememimage(gscreen);
-	gscreen = allocmemimage(r, XRGB32);
-	gscreen->clipr = ZR;
-	qunlock(&drawlock);
-
+	r = Rect(0, 0, x, y);
 	screenresize(r);
-
-	qlock(&drawlock);
-	wl->dirty = 1;
-	wl->r = r;
-	wlflush(wl);
-	qunlock(&drawlock);
 }
 
 void
@@ -166,6 +168,14 @@ flushmemscreen(Rectangle r)
 void
 screensize(Rectangle r, ulong chan)
 {
+	gwin->dx = Dx(r);
+	gwin->dy = Dy(r);
+
+	wlallocbuffer(gwin);
+	if(gscreen != nil)
+		freememimage(gscreen);
+	gscreen = allocmemimage(r, chan);
+	gscreen->clipr = ZR;
 	flushmemscreen(r);
 }
 

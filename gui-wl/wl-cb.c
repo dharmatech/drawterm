@@ -637,7 +637,15 @@ mode(void *data, struct wl_output*, uint, int x, int y, int)
 	}
 }
 static void done(void*, struct wl_output*){}
-static void scale(void*, struct wl_output*, int){}
+static void
+scale(void *data, struct wl_output*, int factor)
+{
+	Wlwin *wl;
+
+	wl = data;
+	if(wl->screenbuffer == nil && factor > wl->scale)
+		wl->scale = factor;
+}
 static void geometry(void*, struct wl_output*, int, int, int, int, int, const char*, const char*, int){}
 
 static const struct wl_output_listener output_listener = {
@@ -666,7 +674,8 @@ handle_global(void *data, struct wl_registry *registry, uint32_t name, const cha
 		wl->seat = wl_registry_bind(registry, name, &wl_seat_interface, 4);
 		wl_seat_add_listener(wl->seat, &seat_listener, wl);
 	} else if(strcmp(interface, wl_compositor_interface.name) == 0){
-		wl->compositor = wl_registry_bind(registry, name, &wl_compositor_interface, 1);
+		wl->compositorversion = version < 4 ? version : 4;
+		wl->compositor = wl_registry_bind(registry, name, &wl_compositor_interface, wl->compositorversion);
 	} else if(strcmp(interface, xdg_wm_base_interface.name) == 0){
 		wl->xdg_wm_base = wl_registry_bind(registry, name, &xdg_wm_base_interface, 1);
 		xdg_wm_base_add_listener(wl->xdg_wm_base, &xdg_wm_base_listener, wl);
@@ -761,9 +770,15 @@ wlsetcb(Wlwin *wl)
 	wl_registry_add_listener(registry, &registry_listener, wl);
 	wl_display_roundtrip(wl->display);
 	wl->xkb_context = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
+	/* Bind requests made by registry callbacks are sent during the first
+	 * roundtrip.  A second one collects output mode and scale events before
+	 * the shared-memory buffer is sized. */
+	wl_display_roundtrip(wl->display);
 
 	if(wl->shm == nil || wl->compositor == nil || wl->xdg_wm_base == nil || wl->seat == nil)
 		panic("required wayland capabilities not met");
+	if(wl->compositorversion < WL_SURFACE_SET_BUFFER_SCALE_SINCE_VERSION)
+		wl->scale = 1;
 
 	wlallocbuffer(wl);
 	wl->surface = wl_compositor_create_surface(wl->compositor);
