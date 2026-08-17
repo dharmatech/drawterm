@@ -40,17 +40,25 @@ drawterm -h cpu.example -a auth.example -u glenda -G -c 'lc /'
 - Avoids the extra low-resolution upscaling pass that previously softened
   bitmap fonts on HiDPI displays.
 
-To give the Wayland build a distinct local name:
+Build the Wayland version with its standard executable name:
 
 ```sh
 make CONF=linux clean
-make CONF=linux TARG=drawterm-hidpi
+make CONF=linux
 ```
 
-The resulting executable is `./drawterm-hidpi`. Integer desktop scaling such
-as 200% gives bitmap content exact pixel alignment; fractional scaling still
-benefits from the higher-resolution client buffer but requires a final
-compositor resampling step.
+The resulting executable is `./drawterm`. To install it for the current user:
+
+```sh
+make CONF=linux install
+```
+
+This installs `drawterm` in `~/.local/bin`. The destination can be overridden
+with `BINDIR=/another/directory` when needed.
+
+Integer desktop scaling such as 200% gives bitmap content exact pixel
+alignment; fractional scaling still benefits from the higher-resolution
+client buffer but requires a final compositor resampling step.
 
 Always perform a clean build when changing `CONF` values. Object files are
 shared between configurations and are not ABI-compatible in every case.

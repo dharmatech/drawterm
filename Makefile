@@ -28,9 +28,16 @@ LIBS1=\
 # stupid gcc
 LIBS=$(LIBS1) $(LIBS1) $(LIBS1) libmachdep.a
 
+BINDIR?=$(HOME)/.local/bin
+
 default: $(TARG)
 $(TARG): $(OFILES) $(LIBS)
 	$(CC) $(LDFLAGS) -o $(TARG) $(OFILES) $(LIBS) $(LDADD)
+
+.PHONY: install
+install: $(TARG)
+	install -d "$(BINDIR)"
+	install -m 0755 "$(TARG)" "$(BINDIR)/drawterm"
 
 %.$O: %.c
 	$(CC) $(CFLAGS) $*.c
