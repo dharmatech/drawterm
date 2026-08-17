@@ -2,7 +2,7 @@
 
 ## Project VM
 
-- Use `$p9qemu-local` for VM onboarding, startup, shutdown, and checkpoints.
+- Use `$p9qemu` for VM onboarding, startup, shutdown, and checkpoints.
 - Drawterm's project VM root is `C:\Users\dharm\vm\drawterm`.
 - Use `$plan9-drawterm-windows` for Drawterm connections, guest command
   execution, and `/mnt/term` file exchange.
