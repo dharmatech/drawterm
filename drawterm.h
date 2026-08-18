@@ -10,6 +10,7 @@ extern char *estrdup(char*);
 extern void dttrace(char*, ...);
 extern int aanclient(char*, int);
 extern void osstartresizewatch(void);
+extern int altmeta;
 #ifdef WINDOWS
 extern void osstartconsoleoutput(void);
 extern void osrestoreconsole(void);

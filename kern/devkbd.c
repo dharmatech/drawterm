@@ -3,17 +3,36 @@
 #include	"dat.h"
 #include	"fns.h"
 #include	"error.h"
+#include	"keyboard.h"
 
 static Queue*	keyq;
 static int kbdinuse;
+static int altmetadown;
+static Lock altmetalock;
 
-void
-kbdkey(Rune r, int down)
+int altmeta;
+
+static int
+kbdmodifier(Rune r)
+{
+	switch(r){
+	case Kcaps:
+	case Knum:
+	case Kscroll:
+	case Kshift:
+	case Kalt:
+	case Kaltgr:
+	case Kmod4:
+	case Kctl:
+		return 1;
+	}
+	return 0;
+}
+
+static void
+kbdkeyevent(Rune r, int down)
 {
 	char buf[2+UTFmax];
-
-	if(r == 0)
-		return;
 
 	if(!kbdinuse || keyq == nil){
 		if(down)
@@ -24,6 +43,40 @@ kbdkey(Rune r, int down)
 	memset(buf, 0, sizeof buf);
 	buf[0] = down ? 'r' : 'R';
 	qproduce(keyq, buf, 2+runetochar(buf+1, &r));
+}
+
+void
+kbdkey(Rune r, int down)
+{
+	int prefix;
+
+	if(r == 0)
+		return;
+
+	/*
+	 * Guest kbdfs treats Kalt as the start of a Compose sequence.  In
+	 * Meta mode, keep Kalt out of both keyboard interfaces and encode
+	 * each chord using the terminal convention: Escape, then the key.
+	 */
+	if(!altmeta){
+		kbdkeyevent(r, down);
+		return;
+	}
+
+	ilock(&altmetalock);
+	if(r == Kalt){
+		altmetadown = down;
+		iunlock(&altmetalock);
+		return;
+	}
+	prefix = down && altmetadown && !kbdmodifier(r);
+	iunlock(&altmetalock);
+
+	if(prefix){
+		kbdkeyevent(Kesc, 1);
+		kbdkeyevent(Kesc, 0);
+	}
+	kbdkeyevent(r, down);
 }
 
 enum{

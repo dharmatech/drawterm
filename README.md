@@ -67,6 +67,24 @@ client buffer but requires a final compositor resampling step.
 Always perform a clean build when changing `CONF` values. Object files are
 shared between configurations and are not ABI-compatible in every case.
 
+### Graphical Alt-as-Meta mode
+
+Pass `-m` to make the left Alt key act as Meta in graphical Drawterm sessions.
+While left Alt is held, Drawterm sends an Escape key press before each
+non-modifier key press, so terminal programs receive the conventional
+Escape-prefixed Meta representation. For example, left Alt+X is delivered as
+Escape followed by X.
+
+This mode is opt-in. Without `-m`, left Alt retains the standard Plan 9 Compose
+behavior. Right Alt/AltGr is not changed on keyboard backends, such as Wayland,
+that report it separately. The option applies to graphical sessions; `-G`
+terminal input continues to use the host terminal's Alt handling.
+
+```sh
+PASS='p9qemu-demo' ./drawterm -m -u glenda \
+	-h 127.0.0.20 -a 127.0.0.20
+```
+
 ## Upstream relationship
 
 The canonical upstream is 9front drawterm's `front` branch. Downstream changes

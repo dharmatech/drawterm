@@ -311,7 +311,7 @@ ncpu(char *host, char *cmd)
 void
 usage(void)
 {
-	fprint(2, "usage: %s [-9GBO] "
+	fprint(2, "usage: %s [-9GBOm] "
 		"[-h host] [-u user] [-a authserver] [-s secstore] "
 		"[-e 'crypt hash'] [-k keypattern] "
 		"[-p] [-t timeout] "
@@ -347,6 +347,9 @@ cpumain(int argc, char **argv)
 		break;
 	case 'O':
 		norcpu = 1;
+		break;
+	case 'm':
+		altmeta = 1;
 		break;
 	case 'v':
 		verbose++;
@@ -419,11 +422,11 @@ cpumain(int argc, char **argv)
 		verbose++;
 		free(s);
 	}
-	dttrace("starting host=%s auth=%s user=%s nogfx=%d norcpu=%d cmd=%s",
+	dttrace("starting host=%s auth=%s user=%s nogfx=%d norcpu=%d altmeta=%d cmd=%s",
 		host ? host : "(prompt)",
 		authserver ? authserver : "(prompt)",
 		user ? user : "(prompt)",
-		nogfx, norcpu,
+		nogfx, norcpu, altmeta,
 		cmd ? cmd : "(default)");
 
 	if(nineflag){
