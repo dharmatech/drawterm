@@ -37,6 +37,8 @@ static pthread_key_t prdakey;
 static int resizecols;
 static int resizerows;
 static ulong resizegen;
+static struct termios savedtermios;
+static int termiossaved;
 
 Proc*
 _getproc(void)
@@ -407,11 +409,23 @@ setterm(int raw)
 {
 	struct termios t;
 
-	if(tcgetattr(0, &t) < 0)
-		return;
-	if(raw)
+	if(raw){
+		if(tcgetattr(0, &t) < 0)
+			return;
+		if(!termiossaved){
+			savedtermios = t;
+			termiossaved = 1;
+		}
+		/* Preserve CR and LF as distinct input bytes in raw mode. */
+		t.c_iflag &= ~(IGNCR|ICRNL|INLCR);
 		t.c_lflag &= ~(ECHO|ICANON);
-	else
+	}else if(termiossaved)
+		t = savedtermios;
+	else{
+		if(tcgetattr(0, &t) < 0)
+			return;
 		t.c_lflag |= (ECHO|ICANON);
-	tcsetattr(0, TCSAFLUSH, &t);
+	}
+	if(tcsetattr(0, TCSAFLUSH, &t) == 0 && !raw)
+		termiossaved = 0;
 }
