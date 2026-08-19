@@ -38,6 +38,8 @@ drawterm -h cpu.example -a auth.example -u glenda -G -c 'lc /'
 
 - Propagates terminal rows, columns, and resize notifications from interactive
   Linux `-G` sessions to terminal applications running on Plan 9.
+- Preserves carriage return and line feed as distinct bytes in raw terminal
+  input, so Enter remains `RET` instead of being translated to `C-j`.
 - Honors the integer buffer scale advertised by the Wayland compositor.
 - Supplies a high-resolution shared-memory buffer while preserving Plan 9
   screen and mouse coordinates.
